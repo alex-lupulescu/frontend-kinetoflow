@@ -30,6 +30,12 @@ const MedicService = {
         // blockData: { startTime, endTime, reason? } (Dates should be ISO strings)
         return apiClient.post('/medic/time-blocks', blockData);
     },
+
+    createAppointment(appointmentData) {
+        // appointmentData: { patientId, serviceId, scheduledStartTime, scheduledEndTime, notes?, patientPlanServiceItemId? }
+        // Dates should be ISO strings
+        return apiClient.post('/medic/appointments', appointmentData);
+    },
     
     deleteTimeBlock(timeBlockId) {
         // timeBlockId is the numeric ID part (e.g., 45 from "block-45")

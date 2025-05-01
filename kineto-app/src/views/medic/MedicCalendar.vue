@@ -173,12 +173,29 @@
         </form>
       </div>
     </div>
-    <!-- Other Modals (Appointment Form) Placeholder -->
+
+    <!-- === Appointment Form Modal Integration === -->
+    <AppointmentFormModal
+      v-if="showAppointmentModal"
+      :start-time="appointmentModalData?.start"
+      :end-time="appointmentModalData?.end"
+      :appointment-data="appointmentModalData?.existingAppointment"
+      @close="closeAppointmentModal"
+      @save="handleAppointmentSave"
+    />
+    <!-- === END Appointment Modal === -->
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, nextTick, onBeforeUnmount } from "vue";
+import {
+  ref,
+  reactive,
+  onMounted,
+  computed,
+  nextTick,
+  onBeforeUnmount,
+} from "vue";
 import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -186,22 +203,24 @@ import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import MedicService from "@/services/MedicService";
 import { useToast } from "vue-toastification";
+import AppointmentFormModal from "@/components/AppointmentFormModal.vue"; // Import Modal
 
 const toast = useToast();
-const fullCalendar = ref(null); // Template ref
+const fullCalendar = ref(null);
 
 // --- State ---
 const isLoading = ref(true);
 const loadError = ref("");
-// calendarEvents ref removed, using eventSources now
-const selectedInfo = ref(null); // Holds { start?, end?, jsEvent?, event? }
+const selectedInfo = ref(null); // { start?, end?, jsEvent?, event? }
 const contextMenuStyle = reactive({ display: "none", left: "0px", top: "0px" });
 const isProcessingAction = ref(false); // Can be boolean or string ('block', 'deleteBlock', etc)
 // State for Block Time Modal
 const showBlockModal = ref(false);
 const blockReason = ref("");
 const blockTimeData = ref(null); // { startTime: Date, endTime: Date }
-// const blockModalError = ref(''); // Optional modal-specific error
+// State for Appointment Modal
+const showAppointmentModal = ref(false);
+const appointmentModalData = ref(null); // { start, end, existingAppointment? }
 
 // --- Calendar Options ---
 const calendarOptions = reactive({
@@ -220,7 +239,7 @@ const calendarOptions = reactive({
     list: "List",
   },
   navLinks: true,
-  editable: false,
+  editable: false, // Keep false until drag/drop implemented
   selectable: true,
   selectMirror: true,
   nowIndicator: true,
@@ -230,6 +249,7 @@ const calendarOptions = reactive({
   snapDuration: "00:15:00",
   allDaySlot: false,
   weekends: true,
+  timeZone: "Europe/Bucharest", // IMPORTANT: Set your local timezone
   eventTimeFormat: { hour: "numeric", minute: "2-digit", meridiem: "short" },
   slotLabelFormat: {
     hour: "numeric",
@@ -240,7 +260,7 @@ const calendarOptions = reactive({
   // Callbacks
   datesSet: handleDatesSet,
   select: handleDateSelect,
-  unselect: handleUnselect, // Use the unselect callback
+  unselect: handleUnselect,
   eventClick: handleEventClick,
   // Rendering
   eventDidMount: handleEventMount,
@@ -276,8 +296,8 @@ async function fetchCalendarEvents(fetchInfo, successCallback, failureCallback) 
     const mappedEvents = response.data.map((event) => ({
       id: event.id,
       title: event.title,
-      start: event.start,
-      end: event.end,
+      start: event.start, // Keep as ISO string from backend
+      end: event.end, // Keep as ISO string from backend
       color: event.color,
       backgroundColor: event.color,
       borderColor: event.color ? darkenColor(event.color, 15) : "#2980B9",
@@ -292,17 +312,17 @@ async function fetchCalendarEvents(fetchInfo, successCallback, failureCallback) 
       },
     }));
     console.log("Events loaded:", mappedEvents.length);
-    successCallback(mappedEvents);
+    successCallback(mappedEvents); // Provide events to FullCalendar
   } catch (error) {
     if (error.name === "AbortError") {
       console.log("Fetch aborted.");
       return;
     }
     console.error("Error fetching calendar events:", error);
-    const message = error.response?.data?.message || "Failed schedule.";
+    const message = error.response?.data?.message || "Failed to load schedule data.";
     loadError.value = message;
     toast.error(message);
-    failureCallback(error);
+    failureCallback(error); // Notify FullCalendar of failure
   } finally {
     if (!signal.aborted) {
       isLoading.value = false;
@@ -335,7 +355,9 @@ function handleDatesSet(dateInfo) {
 }
 function handleDateSelect(selectionInfo) {
   console.log("Selected:", selectionInfo.startStr, "to", selectionInfo.endStr);
-  if (selectedInfo.value?.event) { selectedInfo.value = null; } // Clear event selection if selecting time
+  if (selectedInfo.value?.event) {
+    selectedInfo.value = null;
+  } // Clear event selection first
   selectedInfo.value = {
     start: selectionInfo.start,
     end: selectionInfo.end,
@@ -345,12 +367,14 @@ function handleDateSelect(selectionInfo) {
 }
 function handleUnselect() {
   console.log("Unselect Callback Triggered");
-  // If the context menu is open and wasn't triggered by clicking inside it, close it.
-  // This requires more complex logic to track menu state/interaction.
-  // For now, we rely on explicit clearSelection calls.
-  // If menu is visible AND selectedInfo is null (meaning clearSelection was called elsewhere), hide menu
-  if (contextMenuStyle.display === 'block' && !selectedInfo.value) {
-      contextMenuStyle.display = 'none';
+  // Hide context menu ONLY if a modal isn't active and selection state is truly cleared
+  if (
+    contextMenuStyle.display === "block" &&
+    !selectedInfo.value &&
+    !showBlockModal.value &&
+    !showAppointmentModal.value
+  ) {
+    contextMenuStyle.display = "none";
   }
 }
 function handleEventClick(clickInfo) {
@@ -382,7 +406,7 @@ function handleRetryFetch() {
   }
 }
 
-// --- Action Menu Logic ---
+// --- Action Menu & Modal Logic ---
 function positionContextMenu(jsEvent) {
   nextTick(() => {
     const menu = document.querySelector(".context-menu");
@@ -409,11 +433,11 @@ function positionContextMenu(jsEvent) {
 
 function clearSelection() {
   console.log("clearSelection called");
-  selectedInfo.value = null;
-  contextMenuStyle.display = "none";
-  if (fullCalendar.value && typeof fullCalendar.value.getApi === "function") {
+  selectedInfo.value = null; // Clear the stored selection info
+  contextMenuStyle.display = "none"; // Hide the context menu
+  if (fullCalendar.value?.getApi) { // Check existence before calling
     try {
-      fullCalendar.value.getApi().unselect();
+      fullCalendar.value.getApi().unselect(); // Visually unselect on calendar
       console.log("calendarApi.unselect() called");
     } catch (e) {
       console.warn("Error calling unselect:", e);
@@ -424,61 +448,77 @@ function clearSelection() {
 function closeBlockModal() {
   showBlockModal.value = false;
   blockTimeData.value = null;
+  // Don't necessarily clear selection here, user might want to do something else with the slot
+}
+
+function closeAppointmentModal() {
+  showAppointmentModal.value = false;
+  appointmentModalData.value = null; // Reset data
 }
 
 function formatSelectionTime(selection) {
   if (!selection || !selection.start || !selection.end) return "";
-  const options = { hour: "numeric", minute: "2-digit", hour12: true };
-  const start = selection.start.toLocaleTimeString(undefined, options);
-  const end = selection.end.toLocaleTimeString(undefined, options);
-  return `${start} - ${end}`;
+  const options = { timeZone: 'Europe/Bucharest', hour: "numeric", minute: "2-digit", hour12: true };
+  try {
+    const start = selection.start.toLocaleTimeString(undefined, options);
+    const end = selection.end.toLocaleTimeString(undefined, options);
+    return `${start} - ${end}`;
+  } catch(e) { return "Error formatting time"; }
 }
 
 function formatModalTime(date) {
   if (!date) return "";
-  return date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const options = { timeZone: 'Europe/Bucharest', hour: "numeric", minute: "2-digit", hour12: true };
+   try { return date.toLocaleTimeString(undefined, options); }
+   catch (e) { return "Invalid Date"; }
 }
 
 // --- Context Menu Actions ---
 function actionCreateAppointment() {
-  console.log("ACTION: Create Appt", selectedInfo.value);
-  toast.info("Create Appointment NYI.");
-  clearSelection();
+  if (!selectedInfo.value || selectedInfo.value.event || isProcessingAction.value) return;
+  console.log("ACTION: Create Appointment button clicked");
+  appointmentModalData.value = {
+    start: selectedInfo.value.start,
+    end: selectedInfo.value.end,
+    existingAppointment: null,
+  };
+  showAppointmentModal.value = true;
+  contextMenuStyle.display = "none"; // Hide context menu
 }
+
 function actionEditAppointment() {
-  console.log("ACTION: Edit Appt", selectedInfo.value?.event?.id);
-  toast.info("Edit Appointment NYI.");
-  clearSelection();
+  const eventInfo = selectedInfo.value?.event;
+  if (!eventInfo || eventInfo.extendedProps?.type !== 'appointment' || isProcessingAction.value) return;
+  console.log("ACTION: Edit Appt", eventInfo.id);
+  appointmentModalData.value = {
+      start: eventInfo.start,
+      end: eventInfo.end,
+      existingAppointment: eventInfo // Pass event for editing
+  };
+  showAppointmentModal.value = true; // Open the modal
+  clearSelection(); // Clear selection state
 }
+
 function actionCancelAppointment() {
   console.log("ACTION: Cancel Appt", selectedInfo.value?.event?.id);
   toast.info("Cancel Appointment NYI.");
   clearSelection();
 }
 
-// Opens the Block Time Modal
 function actionBlockTime() {
-  if (!selectedInfo.value || selectedInfo.value.event || isProcessingAction.value)
-    return;
-  console.log("ACTION: Block Time button clicked"); // Add log
+  if (!selectedInfo.value || selectedInfo.value.event || isProcessingAction.value) return;
+  console.log("ACTION: Block Time button clicked");
   blockTimeData.value = {
     startTime: selectedInfo.value.start,
     endTime: selectedInfo.value.end,
   };
-  blockReason.value = ""; // Reset reason
-  showBlockModal.value = true; // Open modal
-  // Hide context menu after choosing an action from it
-  contextMenuStyle.display = 'none';
-  // DO NOT call clearSelection() here, as it calls calendarApi.unselect() which might trigger handleUnselect
+  blockReason.value = "";
+  showBlockModal.value = true;
+  contextMenuStyle.display = "none";
 }
 
-// Handles saving the block from the modal
 async function handleBlockTimeSave() {
-  if (!blockTimeData.value || isProcessingAction.value === 'block') return;
+  if (!blockTimeData.value || isProcessingAction.value === "block") return;
   const blockData = {
     startTime: blockTimeData.value.startTime.toISOString(),
     endTime: blockTimeData.value.endTime.toISOString(),
@@ -489,21 +529,21 @@ async function handleBlockTimeSave() {
   try {
     await MedicService.createTimeBlock(blockData);
     toast.success("Time blocked successfully.");
-    closeBlockModal(); // Close modal first
-    clearSelection(); // Explicitly clear state AFTER modal action completes
-    fullCalendar.value?.getApi().refetchEvents(); // Refresh calendar last
+    closeBlockModal();
+    clearSelection(); // Clear underlying selection state
+    fullCalendar.value?.getApi().refetchEvents();
   } catch (error) {
-    console.error("Error blocking time (from modal):", error);
-    toast.error(error.response?.data?.message || "Failed to block time.");
+    console.error("Error blocking time:", error);
+    toast.error(error.response?.data?.message || "Failed.");
   } finally {
     isProcessingAction.value = false;
   }
 }
 
-// Handles Mark Available / Delete Block actions
 async function actionMarkAvailable() {
   const eventInfo = selectedInfo.value?.event;
-  if (!eventInfo || eventInfo.extendedProps?.type !== "block" || isProcessingAction.value) return;
+  if (!eventInfo || eventInfo.extendedProps?.type !== "block" || isProcessingAction.value)
+    return;
   const blockIdStr = eventInfo.id.startsWith("block-") ? eventInfo.id.substring(6) : null;
   const blockId = blockIdStr ? parseInt(blockIdStr, 10) : null;
   if (!blockId || isNaN(blockId)) {
@@ -520,18 +560,27 @@ async function actionMarkAvailable() {
   try {
     await MedicService.deleteTimeBlock(blockId);
     toast.success("Time block removed.");
-    clearSelection(); // Clear selection AFTER successful action
+    clearSelection(); // Clear selection state
     fullCalendar.value?.getApi().refetchEvents();
   } catch (error) {
     console.error("Error deleting block:", error);
-    toast.error(error.response?.data?.message || "Failed delete block.");
+    toast.error(error.response?.data?.message || "Failed delete.");
   } finally {
     isProcessingAction.value = false;
   }
 }
 async function actionDeleteBlockAlternative() {
   await actionMarkAvailable();
-  isProcessingAction.value = "deleteBlockAlt";
+}
+
+// Handles the @save event from the appointment modal
+function handleAppointmentSave() {
+  console.log("Appointment saved event received. Refetching calendar.");
+  // Modal closes itself before emitting 'save'
+  clearSelection(); // Clear any underlying selection state
+  if (fullCalendar.value) {
+    fullCalendar.value.getApi().refetchEvents(); // Refresh the calendar
+  }
 }
 
 // --- Lifecycle ---
@@ -547,7 +596,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* General Page & Card Styles */
+/* Styles remain the same */
 .page-container {
   display: flex;
   flex-direction: column;
@@ -617,13 +666,13 @@ h1 {
 
 /* Context Menu */
 .context-menu {
-  position: absolute;
+  position: fixed; /* Use fixed for positioning relative to viewport */
   z-index: 1020;
   background-color: var(--white-color);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-medium);
   padding: 0.75rem;
-  display: flex;
+  display: none; /* Toggled by state */
   flex-direction: column;
   gap: 0.5rem;
   min-width: 180px;
@@ -676,9 +725,15 @@ h1 {
   position: relative;
   width: 90%;
   max-width: 450px; /* Smaller default */
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 .block-modal-content {
-  /* Keep specific size or remove if default is ok */
+  /* keep size */
+}
+.appointment-modal-content {
+  max-width: 600px; /* Wider for appt form */
 }
 .modal-close-button {
   position: absolute;
@@ -702,12 +757,19 @@ h1 {
   margin-bottom: 0.5rem;
   font-size: 1.4rem;
   text-align: center;
+  flex-shrink: 0;
 }
 .modal-content > p {
   text-align: center;
   color: var(--text-color);
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
+  flex-shrink: 0;
+}
+.modal-form {
+  overflow-y: auto;
+  padding-right: 5px; /* Space for scrollbar */
+  flex-grow: 1;
 }
 .modal-form .form-group {
   margin-bottom: 1.5rem;
@@ -719,6 +781,7 @@ h1 {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid #eee;
+  flex-shrink: 0;
 }
 .modal-error {
   margin-top: 1rem;
@@ -732,10 +795,9 @@ h1 {
   font-size: 0.95rem;
 }
 .modal-form input.form-control:disabled {
-    background-color: #e9ecef;
-    cursor: not-allowed;
+  background-color: #e9ecef;
+  cursor: not-allowed;
 }
-
 
 /* Custom Event Styles */
 :deep(.fc-event) {
