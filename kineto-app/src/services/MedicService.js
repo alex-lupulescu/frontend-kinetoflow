@@ -40,8 +40,26 @@ const MedicService = {
     deleteTimeBlock(timeBlockId) {
         // timeBlockId is the numeric ID part (e.g., 45 from "block-45")
         return apiClient.delete(`/medic/time-blocks/${timeBlockId}`);
-    }
+    },
 
+    cancelAppointment(appointmentId, cancellationData) {
+        // cancellationData: { newStatus: 'CANCELLED_BY_MEDIC' or 'CANCELLED_BY_PATIENT', cancellationReason?: '...' }
+        return apiClient.patch(`/medic/appointments/${appointmentId}/cancel`, cancellationData);
+    },
+
+    deleteAppointment(appointmentId) {
+        return apiClient.delete(`/medic/appointments/${appointmentId}`);
+    },
+
+    // --- Medic Working Hours ---
+    getMyWorkingHours() {
+        return apiClient.get('/medic/working-hours');
+    },
+
+    setMyWorkingHours(workingHoursData) {
+        // The backend expects a list of MedicWorkingHoursDto
+        return apiClient.post('/medic/working-hours', workingHoursData);
+    }
     // Add methods for assigning plans, creating appointments later
 };
 
