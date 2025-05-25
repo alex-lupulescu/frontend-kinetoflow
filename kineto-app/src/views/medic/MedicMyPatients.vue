@@ -13,32 +13,40 @@
 
     <!-- Active Patients List -->
     <section class="card list-section">
-        <h2>Active Patients</h2>
-        <p>List of active patients currently assigned to you.</p>
+        <h2>My Patients</h2>
+        <p>List of all patients (active and inactive) currently assigned to you.</p>
         <!-- Loading Indicator -->
-        <div v-if="isLoadingActive" class="loading-indicator">
-             <i class="fas fa-spinner fa-spin"></i> Loading active patients...
+        <div v-if="isLoadingAssignedPatients" class="loading-indicator">
+             <i class="fas fa-spinner fa-spin"></i> Loading patients...
         </div>
         <!-- Loading Error Message -->
-        <div v-if="loadActiveError" class="error-message table-error">
-            <i class="fas fa-exclamation-triangle"></i> {{ loadActiveError }}
+        <div v-if="loadAssignedPatientsError" class="error-message table-error">
+            <i class="fas fa-exclamation-triangle"></i> {{ loadAssignedPatientsError }}
         </div>
 
         <!-- Patient List Table: Show only if NOT loading AND there ARE patients -->
-        <table v-if="!isLoadingActive && activePatients.length > 0" class="data-table patient-table">
+        <table v-if="!isLoadingAssignedPatients && assignedPatients.length > 0" class="data-table patient-table">
             <thead>
               <tr>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Phone Number</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="patient in activePatients" :key="'active-'+patient.id">
+              <tr v-for="patient in assignedPatients" :key="'assigned-'+patient.id" :class="{ 'inactive-row': !patient.isActive }">
                 <td>{{ patient.id }}</td>
                 <td>{{ patient.name }}</td>
-                <td>{{ patient.email }}</td>
+                <td>{{ patient.email || 'N/A' }}</td>
+                <td>{{ patient.phoneNumber || 'N/A' }}</td>
+                <td>
+                    <span :class="patient.isActive ? 'status-active' : 'status-inactive'">
+                        {{ patient.isActive ? 'Active' : 'Inactive' }}
+                    </span>
+                </td>
                 <td>
                    <!-- View Plan Button (Future) -->
                    <button @click="viewPatientPlan(patient.id)" class="btn btn-info btn-sm" title="View Plan Details">
@@ -47,6 +55,10 @@
                    <!-- Assign Plan Button -->
                    <button @click="openAssignPlanModal(patient)" class="btn btn-primary btn-sm" title="Assign New Plan/Package">
                       <i class="fas fa-plus-circle"></i> Assign Plan
+                   </button>
+                   <!-- Edit Patient Button -->
+                   <button @click="openEditPatientModal(patient)" class="btn btn-warning btn-sm" title="Edit Patient Details">
+                       <i class="fas fa-edit"></i> Edit
                    </button>
                   <!-- Schedule Button (Future) -->
                   <button @click="scheduleAppointment(patient.id)" class="btn btn-secondary btn-sm" title="Schedule Appointment">
@@ -58,8 +70,8 @@
         </table>
 
         <!-- No Data Message: Show only if NOT loading, NO error, AND NO active patients -->
-        <p v-if="!isLoadingActive && !loadActiveError && activePatients.length === 0" class="no-data-message">
-             You currently have no active patients assigned.
+        <p v-if="!isLoadingAssignedPatients && !loadAssignedPatientsError && assignedPatients.length === 0" class="no-data-message">
+             You currently have no patients assigned.
         </p>
     </section>
 
@@ -79,15 +91,19 @@
          <table v-if="!isLoadingPending && pendingInvites.length > 0" class="data-table pending-table">
              <thead>
                 <tr>
+                    <th>Name</th>
                     <th>Email</th>
+                    <th>Phone Number</th>
                     <th>Invited On (Approx)</th>
                     <th>Actions</th>
                 </tr>
              </thead>
              <tbody>
                <tr v-for="invitee in pendingInvites" :key="'pending-'+invitee.id">
-                 <td>{{ invitee.email }}</td>
-                 <td>{{ formatDate(invitee.updatedAt) }}</td> {/* Displaying updatedAt as proxy for invite time */}
+                 <td>{{ invitee.name }}</td>
+                 <td>{{ invitee.email || 'N/A' }}</td>
+                 <td>{{ invitee.phoneNumber || 'N/A' }}</td>
+                 <td>{{ formatDate(invitee.updatedAt) }}</td>
                  <td>
                    <!-- Resend Button -->
                    <button @click="handleResendInvite(invitee)" class="btn btn-success btn-sm" title="Resend Invitation" :disabled="isResending[invitee.id] || isCancelling[invitee.id]">
@@ -109,6 +125,38 @@
             </p>
       </section>
 
+
+    <!-- Edit Patient Modal -->
+    <div v-if="showEditPatientModal" class="modal-overlay" @click.self="closeEditPatientModal">
+        <div class="modal-content">
+            <button @click="closeEditPatientModal" class="modal-close-button" title="Close">×</button>
+            <h2>Edit Patient: {{ patientToEditData?.name }}</h2>
+            <form @submit.prevent="handleUpdatePatientDetails" class="modal-form">
+                <div class="form-group">
+                    <label for="editPatientName" class="form-label">Patient Name *</label>
+                    <input type="text" id="editPatientName" v-model="editPatientForm.name" required placeholder="Enter patient's full name" :disabled="isUpdatingPatient" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editPatientPhone" class="form-label">Patient Phone *</label>
+                    <input type="tel" id="editPatientPhone" v-model="editPatientForm.phone" required placeholder="Enter patient's phone number" :disabled="isUpdatingPatient" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editPatientEmail" class="form-label">Patient Email</label>
+                    <input type="email" id="editPatientEmail" v-model="editPatientForm.email" placeholder="Enter patient's email (optional)" :disabled="isUpdatingPatient" class="form-control">
+                    <small v-if="patientToEditData?.isActive && !patientToEditData?.email" class="text-muted">Adding an email here will not activate the patient. You may need to resend an invitation if they were offline.</small>
+                    <small v-else-if="patientToEditData?.isActive && patientToEditData?.email" class="text-muted">Active patients must have an email.</small>
+                </div>
+                <div v-if="editPatientError" class="error-message modal-error">{{ editPatientError }}</div>
+                <div class="modal-actions">
+                    <button type="button" @click="closeEditPatientModal" class="btn btn-cancel" :disabled="isUpdatingPatient">Cancel</button>
+                    <button type="submit" class="btn btn-primary" :disabled="isUpdatingPatient || !editPatientForm.name || !editPatientForm.phone">
+                        <span v-if="isUpdatingPatient"><i class="fas fa-spinner fa-spin"></i> Updating...</span>
+                        <span v-else>Save Changes</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Assign Plan Modal -->
     <div v-if="showAssignModal" class="modal-overlay" @click.self="closeAssignModal">
@@ -187,17 +235,25 @@
             <div class="modal-content">
                  <button @click="closeInvitePatientModal" class="modal-close-button" title="Close">×</button>
                  <h2>Invite New Patient</h2>
-                 <p>An email invitation will be sent to the patient to set up their account.</p>
+                 <p>An email invitation will be sent to the patient to set up their account. If no email is provided, the patient will be added as an offline account.</p>
                  <form @submit.prevent="handleSendPatientInvitation" class="modal-form">
                       <div class="form-group">
-                         <label for="invitePatientEmail" class="form-label">Patient Email *</label>
-                         <input type="email" id="invitePatientEmail" v-model="invitePatientEmail" required placeholder="Enter patient's email address" :disabled="isInvitingPatient" class="form-control">
+                         <label for="invitePatientName" class="form-label">Patient Name *</label>
+                         <input type="text" id="invitePatientName" v-model="invitePatientName" required placeholder="Enter patient's full name" :disabled="isInvitingPatient" class="form-control">
+                     </div>
+                     <div class="form-group">
+                        <label for="invitePatientPhone" class="form-label">Patient Phone *</label>
+                        <input type="tel" id="invitePatientPhone" v-model="invitePatientPhone" required placeholder="Enter patient's phone number" :disabled="isInvitingPatient" class="form-control">
+                    </div>
+                    <div class="form-group">
+                         <label for="invitePatientEmail" class="form-label">Patient Email (Optional)</label>
+                         <input type="email" id="invitePatientEmail" v-model="invitePatientEmail" placeholder="Enter patient's email address" :disabled="isInvitingPatient" class="form-control">
                      </div>
                       <div v-if="invitePatientError" class="error-message modal-error">{{ invitePatientError }}</div>
                       <div class="modal-actions">
                           <button type="button" @click="closeInvitePatientModal" class="btn btn-cancel" :disabled="isInvitingPatient">Cancel</button>
-                          <button type="submit" class="btn btn-primary" :disabled="isInvitingPatient || !invitePatientEmail">
-                              <span v-if="isInvitingPatient"><i class="fas fa-spinner fa-spin"></i> Sending...</span> <span v-else>Send Invitation</span>
+                          <button type="submit" class="btn btn-primary" :disabled="isInvitingPatient || !invitePatientName || !invitePatientPhone">
+                              <span v-if="isInvitingPatient"><i class="fas fa-spinner fa-spin"></i> Sending...</span> <span v-else>Send Invitation / Add Patient</span>
                           </button>
                       </div>
                  </form>
@@ -221,10 +277,24 @@ const toast = useToast();
 const router = useRouter();
 
 // State... (activePatients, pendingInvites, assignModal, inviteModal etc.)
-const activePatients = ref([]); const isLoadingActive = ref(true); const loadActiveError = ref('');
+const assignedPatients = ref([]); const isLoadingAssignedPatients = ref(true); const loadAssignedPatientsError = ref('');
 const pendingInvites = ref([]); const isLoadingPending = ref(true); const loadPendingError = ref(''); const isResending = reactive({}); const isCancelling = reactive({});
 const showAssignModal = ref(false); const patientToAssign = ref(null); const assignmentType = ref('package'); const availablePackages = ref([]); const availableServices = ref([]); const selectedPackageId = ref(null); const customServiceItems = ref([]); const planNotes = ref(''); const isAssigning = ref(false); const assignError = ref(''); const isLoadingPackages = ref(false); const loadPackagesError = ref(''); const isLoadingServices = ref(false); const loadServicesError = ref(''); const customItemsError = ref('');
 const showInviteModal = ref(false); const invitePatientEmail = ref(''); const isInvitingPatient = ref(false); const invitePatientError = ref('');
+const invitePatientName = ref(''); // Added for new field
+const invitePatientPhone = ref(''); // Added for new field
+
+// Edit Patient Modal State
+const showEditPatientModal = ref(false);
+const patientToEditData = ref(null); // Stores the original patient data for the modal title and logic
+const editPatientForm = reactive({
+    id: null,
+    name: '',
+    email: '',
+    phone: ''
+});
+const isUpdatingPatient = ref(false);
+const editPatientError = ref('');
 
 // Computed...
 const isAssignmentValid = computed(() => { if (assignmentType.value === 'package') { return !!selectedPackageId.value; } else if (assignmentType.value === 'custom') { if (customServiceItems.value.length === 0) return false; const allItemsValid = customServiceItems.value.every(item => item.serviceId && item.quantity >= 1); const noDuplicates = new Set(customServiceItems.value.map(i => i.serviceId)).size === customServiceItems.value.length; return allItemsValid && noDuplicates; } return false; });
@@ -232,7 +302,22 @@ const isAssignmentValid = computed(() => { if (assignmentType.value === 'package
 // Methods...
 const formatDate = (dateString) => { if (!dateString) return 'N/A'; try { const options = { year: 'numeric', month: 'short', day: 'numeric' }; return new Intl.DateTimeFormat('en-US', options).format(new Date(dateString)); } catch (e) { return dateString; } };
 const formatCurrency = (value) => { if (value === null || value === undefined) return 'N/A'; return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value); };
-const fetchAssignedActivePatients = async () => { isLoadingActive.value = true; loadActiveError.value = ''; activePatients.value = []; try { const response = await UserService.getAssignedPatients(); activePatients.value = response.data; } catch (error) { console.error("Error fetching active patients:", error); const message = error.response?.data?.message || 'Failed to load active patients.'; loadActiveError.value = message; toast.error(message); } finally { isLoadingActive.value = false; } };
+const fetchAllAssignedPatients = async () => {
+    isLoadingAssignedPatients.value = true;
+    loadAssignedPatientsError.value = '';
+    assignedPatients.value = [];
+    try {
+        const response = await UserService.getAssignedPatients();
+        assignedPatients.value = response.data;
+    } catch (error) {
+        console.error("Error fetching assigned patients:", error);
+        const message = error.response?.data?.message || 'Failed to load patients.';
+        loadAssignedPatientsError.value = message;
+        toast.error(message);
+    } finally {
+        isLoadingAssignedPatients.value = false;
+    }
+};
 const fetchAssignedPendingInvites = async () => { isLoadingPending.value = true; loadPendingError.value = ''; pendingInvites.value = []; isResending.clear?.(); isCancelling.clear?.(); try { const response = await MedicService.getPendingPatientInvites(); pendingInvites.value = response.data; } catch (error) { console.error("Error fetching pending invites:", error); const message = error.response?.data?.message || 'Failed to load pending invitations.'; loadPendingError.value = message; toast.error(message); } finally { isLoadingPending.value = false; } };
 const fetchPackagesForModal = async () => { isLoadingPackages.value = true; loadPackagesError.value = ''; availablePackages.value = []; try { const response = await MedicService.getActiveCompanyPackages(); availablePackages.value = response.data; } catch (error) { console.error("Error fetching packages:", error); loadPackagesError.value = "Could not load packages."; toast.error(loadPackagesError.value); } finally { isLoadingPackages.value = false; } };
 const fetchServicesForModal = async () => { isLoadingServices.value = true; loadServicesError.value = ''; availableServices.value = []; try { const response = await MedicService.getActiveCompanyServices(); availableServices.value = response.data; } catch (error) { console.error("Error fetching services:", error); loadServicesError.value = "Could not load services."; toast.error(loadServicesError.value); } finally { isLoadingServices.value = false; } };
@@ -250,12 +335,168 @@ const viewPatientPlan = (patientId) => {
     router.push({ name: 'medic-patient-plan-detail', params: { patientId: patientId } });
     // toast.info(`View plan for Patient ${patientId} not implemented yet.`); // Remove toast
 };const scheduleAppointment = (patientId) => { toast.info(`Scheduling ${patientId} NYI.`); };
-const openInvitePatientModal = () => { invitePatientEmail.value = ''; invitePatientError.value = ''; isInvitingPatient.value = false; showInviteModal.value = true; };
+const openInvitePatientModal = () => {
+    invitePatientName.value = ''; // Reset new field
+    invitePatientPhone.value = ''; // Reset new field
+    invitePatientEmail.value = '';
+    invitePatientError.value = '';
+    isInvitingPatient.value = false;
+    showInviteModal.value = true;
+};
 const closeInvitePatientModal = () => { showInviteModal.value = false; };
-const handleSendPatientInvitation = async () => { isInvitingPatient.value = true; invitePatientError.value = ''; try { await InvitationService.sendInvitation({ email: invitePatientEmail.value, role: 'USER' }); toast.success(`Invitation sent to ${invitePatientEmail.value}!`); closeInvitePatientModal(); await fetchAssignedPendingInvites(); } catch (error) { const message = error.response?.data?.message || 'Failed to send invitation.'; invitePatientError.value = message; toast.error(message); } finally { isInvitingPatient.value = false; } };
-const handleResendInvite = async (invitee) => { if (isResending[invitee.id]) return; isResending[invitee.id] = true; try { await InvitationService.sendInvitation({ email: invitee.email, role: 'USER' }); toast.success(`Invitation resent to ${invitee.email}.`); } catch (error) { toast.error(error.response?.data?.message || 'Failed to resend.'); } finally { delete isResending[invitee.id]; } };
-const handleCancelInvite = async (invitee) => { if (isCancelling[invitee.id] || !confirm(`Cancel invitation for ${invitee.email}?`)) return; isCancelling[invitee.id] = true; try { await UserService.cancelPatientInvitation(invitee.id); toast.success(`Invitation for ${invitee.email} cancelled.`); pendingInvites.value = pendingInvites.value.filter(p => p.id !== invitee.id); } catch (error) { toast.error(error.response?.data?.message || 'Failed to cancel.'); } finally { delete isCancelling[invitee.id]; } };
-onMounted(async () => { await Promise.all([ fetchAssignedActivePatients(), fetchAssignedPendingInvites() ]); });
+const handleSendPatientInvitation = async () => {
+    isInvitingPatient.value = true;
+    invitePatientError.value = '';
+
+    if (!invitePatientName.value || !invitePatientPhone.value) {
+        invitePatientError.value = 'Patient name and phone number are required.';
+        toast.error(invitePatientError.value);
+        isInvitingPatient.value = false;
+        return;
+    }
+
+    // Validate email if provided
+    if (invitePatientEmail.value && !/.+@.+\..+/.test(invitePatientEmail.value)) {
+        invitePatientError.value = 'Please enter a valid email address or leave it blank.';
+        toast.error(invitePatientError.value);
+        isInvitingPatient.value = false;
+        return;
+    }
+
+    try {
+        const invitationPayload = {
+            name: invitePatientName.value,
+            phone: invitePatientPhone.value,
+            role: 'USER', // Assuming role is always 'USER' for patients
+        };
+        if (invitePatientEmail.value) {
+            invitationPayload.email = invitePatientEmail.value;
+        }
+
+        await InvitationService.sendInvitation(invitationPayload);
+
+        if (invitePatientEmail.value) {
+            toast.success(`Invitation sent to ${invitePatientEmail.value}!`);
+        } else {
+            toast.success(`${invitePatientName.value} added as an offline patient.`);
+        }
+        closeInvitePatientModal();
+        // Refresh relevant lists - pending invites might now include offline patients
+        // or active patients if the backend activates them directly in some cases.
+        // For now, let's refresh both, assuming the backend might place them in either list.
+        await fetchAssignedPendingInvites(); // To see new pending (emailed or email-less)
+        await fetchAllAssignedPatients(); // Renamed call
+
+    } catch (error) {
+        const message = error.response?.data?.message || 'Failed to add patient or send invitation.';
+        invitePatientError.value = message;
+        toast.error(message);
+    } finally {
+        isInvitingPatient.value = false;
+    }
+};
+const handleResendInvite = async (invitee) => {
+    if (!invitee.email) { // Check if email exists for the invitee
+        toast.info("This patient does not have an email address to resend the invitation to. Please add an email first.");
+        return;
+    }
+    if (isResending[invitee.id]) return;
+    isResending[invitee.id] = true;
+    try {
+        // The payload for resend should ideally just be the identifier (email or id)
+        // Assuming InvitationService.sendInvitation can handle a resend if email exists
+        // Or a dedicated resend endpoint might be better.
+        // For now, we reuse sendInvitation with email and role.
+        await InvitationService.sendInvitation({ 
+            name: invitee.name, 
+            phone: invitee.phoneNumber, 
+            email: invitee.email, 
+            role: 'USER' 
+        });
+        toast.success(`Invitation resent to ${invitee.email}.`);
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to resend invitation.');
+    } finally {
+        delete isResending[invitee.id];
+    }
+};
+const handleCancelInvite = async (invitee) => { if (isCancelling[invitee.id] || !confirm(`Cancel invitation for ${invitee.name || invitee.email}?`)) return; isCancelling[invitee.id] = true; try { await UserService.cancelPatientInvitation(invitee.id); toast.success(`Invitation for ${invitee.name || invitee.email} cancelled.`); pendingInvites.value = pendingInvites.value.filter(p => p.id !== invitee.id); } catch (error) { toast.error(error.response?.data?.message || 'Failed to cancel.'); } finally { delete isCancelling[invitee.id]; } };
+
+// --- Edit Patient Modal Methods ---
+const openEditPatientModal = (patient) => {
+    patientToEditData.value = { ...patient }; // Clone patient data
+    editPatientForm.id = patient.id;
+    editPatientForm.name = patient.name;
+    editPatientForm.email = patient.email || ''; // Handle null email
+    editPatientForm.phone = patient.phoneNumber || ''; // Handle null phone
+    editPatientError.value = '';
+    isUpdatingPatient.value = false;
+    showEditPatientModal.value = true;
+};
+
+const closeEditPatientModal = () => {
+    showEditPatientModal.value = false;
+    patientToEditData.value = null;
+    // Reset form if needed, though openEditPatientModal re-initializes it
+    editPatientForm.id = null;
+    editPatientForm.name = '';
+    editPatientForm.email = '';
+    editPatientForm.phone = '';
+};
+
+const handleUpdatePatientDetails = async () => {
+    if (!editPatientForm.name || !editPatientForm.phone) {
+        editPatientError.value = 'Patient name and phone number are required.';
+        toast.error(editPatientError.value);
+        return;
+    }
+    // Basic email validation if email is not empty
+    if (editPatientForm.email && !/.+@.+\..+/.test(editPatientForm.email)) {
+        editPatientError.value = 'Please enter a valid email address or leave it blank if patient is inactive and has no email.';
+        toast.error(editPatientError.value);
+        return;
+    }
+
+    isUpdatingPatient.value = true;
+    editPatientError.value = '';
+
+    try {
+        const payload = {
+            name: editPatientForm.name,
+            email: editPatientForm.email || null, // Send null if empty, backend handles logic
+            phone: editPatientForm.phone
+        };
+        const updatedPatient = await UserService.updatePatientDetails(editPatientForm.id, payload);
+
+        // Update the local list
+        const index = assignedPatients.value.findIndex(p => p.id === editPatientForm.id);
+        if (index !== -1) {
+            assignedPatients.value[index] = { ...assignedPatients.value[index], ...updatedPatient.data };
+        }
+         // Also check and update in pendingInvites if the ID matches, though less likely to be edited from there
+        const pendingIndex = pendingInvites.value.findIndex(p => p.id === editPatientForm.id);
+        if (pendingIndex !== -1) {
+            pendingInvites.value[pendingIndex] = { ...pendingInvites.value[pendingIndex], ...updatedPatient.data };
+        }
+
+        toast.success('Patient details updated successfully!');
+        closeEditPatientModal();
+    } catch (error) {
+        console.error("Error updating patient details:", error);
+        const message = error.response?.data?.message || 'Failed to update patient details.';
+        editPatientError.value = message;
+        toast.error(message);
+    } finally {
+        isUpdatingPatient.value = false;
+    }
+};
+
+onMounted(async () => {
+    await Promise.all([
+        fetchAllAssignedPatients(), // Renamed call
+        fetchAssignedPendingInvites()
+    ]);
+});
 
 </script>
 
@@ -331,4 +572,20 @@ onMounted(async () => { await Promise.all([ fetchAssignedActivePatients(), fetch
     .error-message.form-error { /* Position adjustment if needed */ }
     .no-data-message { text-align: center; padding: 2rem; color: #6c757d; font-style: italic; margin-top: 1rem; }
     /* Assume spinner animation and global button styles are defined elsewhere */
+
+    .inactive-row {
+        background-color: #f8f9fa; /* Light grey for inactive rows */
+        opacity: 0.7;
+    }
+    .inactive-row:hover {
+        opacity: 1;
+    }
+    .status-active {
+        color: var(--success-color);
+        font-weight: bold;
+    }
+    .status-inactive {
+        color: var(--muted-color); /* Ensure --muted-color is defined in your global styles */
+        font-style: italic;
+    }
 </style>

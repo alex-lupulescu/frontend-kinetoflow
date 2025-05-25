@@ -21,6 +21,10 @@ const UserService = {
         return apiClient.get('/medic/my-patients');
     },
 
+    updatePatientDetails(patientId, patientData) {
+        return apiClient.put(`/medic/patients/${patientId}/details`, patientData);
+    },
+
     cancelPatientInvitation(pendingUserId) {
         return apiClient.delete(`/medic/invites/${pendingUserId}/cancel`);
     },
