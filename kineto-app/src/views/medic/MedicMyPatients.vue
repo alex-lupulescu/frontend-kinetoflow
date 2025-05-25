@@ -15,6 +15,12 @@
     <section class="card list-section">
         <h2>My Patients</h2>
         <p>List of all patients (active and inactive) currently assigned to you.</p>
+
+        <!-- Search Bar for Assigned Patients -->
+        <div class="list-controls">
+            <input type="text" v-model="assignedPatientsSearchTerm" placeholder="Search by name, email, phone..." class="form-control search-input">
+        </div>
+
         <!-- Loading Indicator -->
         <div v-if="isLoadingAssignedPatients" class="loading-indicator">
              <i class="fas fa-spinner fa-spin"></i> Loading patients...
@@ -25,7 +31,7 @@
         </div>
 
         <!-- Patient List Table: Show only if NOT loading AND there ARE patients -->
-        <table v-if="!isLoadingAssignedPatients && assignedPatients.length > 0" class="data-table patient-table">
+        <table v-if="!isLoadingAssignedPatients && filteredAndPaginatedAssignedPatients.length > 0" class="data-table patient-table">
             <thead>
               <tr>
                 <th>ID</th>
@@ -37,7 +43,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="patient in assignedPatients" :key="'assigned-'+patient.id" :class="{ 'inactive-row': !patient.isActive }">
+              <tr v-for="patient in filteredAndPaginatedAssignedPatients" :key="'assigned-'+patient.id" :class="{ 'inactive-row': !patient.isActive }">
                 <td>{{ patient.id }}</td>
                 <td>{{ patient.name }}</td>
                 <td>{{ patient.email || 'N/A' }}</td>
@@ -69,9 +75,23 @@
             </tbody>
         </table>
 
-        <!-- No Data Message: Show only if NOT loading, NO error, AND NO active patients -->
-        <p v-if="!isLoadingAssignedPatients && !loadAssignedPatientsError && assignedPatients.length === 0" class="no-data-message">
+        <!-- Pagination for Assigned Patients -->
+        <div v-if="!isLoadingAssignedPatients && allAssignedPatients.length > 0 && totalAssignedPatientPages > 1" class="pagination-controls">
+            <button @click="goToAssignedPatientsPage(assignedPatientsCurrentPage - 1)" :disabled="assignedPatientsCurrentPage === 1" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-chevron-left"></i> Prev
+            </button>
+            <span>Page {{ assignedPatientsCurrentPage }} of {{ totalAssignedPatientPages }}</span>
+            <button @click="goToAssignedPatientsPage(assignedPatientsCurrentPage + 1)" :disabled="assignedPatientsCurrentPage === totalAssignedPatientPages" class="btn btn-sm btn-outline-secondary">
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- No Data Message: Show only if NOT loading, NO error, AND NO patients after filtering/initial load -->
+        <p v-if="!isLoadingAssignedPatients && !loadAssignedPatientsError && allAssignedPatients.length === 0" class="no-data-message">
              You currently have no patients assigned.
+        </p>
+        <p v-if="!isLoadingAssignedPatients && !loadAssignedPatientsError && allAssignedPatients.length > 0 && filteredAndPaginatedAssignedPatients.length === 0" class="no-data-message">
+            No patients found matching your search criteria.
         </p>
     </section>
 
@@ -79,6 +99,12 @@
      <section class="card list-section">
         <h2>Pending Invitations</h2>
         <p>Patients you have invited who haven't activated their account yet.</p>
+
+        <!-- Search Bar for Pending Invites -->
+        <div class="list-controls">
+            <input type="text" v-model="pendingInvitesSearchTerm" placeholder="Search by name, email, phone..." class="form-control search-input">
+        </div>
+
          <!-- Loading Indicator -->
          <div v-if="isLoadingPending" class="loading-indicator">
             <i class="fas fa-spinner fa-spin"></i> Loading pending invites...
@@ -88,7 +114,7 @@
             <i class="fas fa-exclamation-triangle"></i> {{ loadPendingError }}
          </div>
          <!-- Pending Invites Table: Show if not loading AND there are invites -->
-         <table v-if="!isLoadingPending && pendingInvites.length > 0" class="data-table pending-table">
+         <table v-if="!isLoadingPending && filteredAndPaginatedPendingInvites.length > 0" class="data-table pending-table">
              <thead>
                 <tr>
                     <th>Name</th>
@@ -99,7 +125,7 @@
                 </tr>
              </thead>
              <tbody>
-               <tr v-for="invitee in pendingInvites" :key="'pending-'+invitee.id">
+               <tr v-for="invitee in filteredAndPaginatedPendingInvites" :key="'pending-'+invitee.id">
                  <td>{{ invitee.name }}</td>
                  <td>{{ invitee.email || 'N/A' }}</td>
                  <td>{{ invitee.phoneNumber || 'N/A' }}</td>
@@ -119,9 +145,24 @@
                </tr>
              </tbody>
            </table>
-            <!-- No Pending Message: Show if not loading, no error, AND no pending invites -->
-            <p v-if="!isLoadingPending && !loadPendingError && pendingInvites.length === 0" class="no-data-message">
+
+            <!-- Pagination for Pending Invites -->
+            <div v-if="!isLoadingPending && allPendingInvites.length > 0 && totalPendingInvitePages > 1" class="pagination-controls">
+                <button @click="goToPendingInvitesPage(pendingInvitesCurrentPage - 1)" :disabled="pendingInvitesCurrentPage === 1" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-chevron-left"></i> Prev
+                </button>
+                <span>Page {{ pendingInvitesCurrentPage }} of {{ totalPendingInvitePages }}</span>
+                <button @click="goToPendingInvitesPage(pendingInvitesCurrentPage + 1)" :disabled="pendingInvitesCurrentPage === totalPendingInvitePages" class="btn btn-sm btn-outline-secondary">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <!-- No Pending Message: Show if not loading, no error, AND NO pending invites after filtering/initial load -->
+            <p v-if="!isLoadingPending && !loadPendingError && allPendingInvites.length === 0" class="no-data-message">
                 No pending patient invitations found.
+            </p>
+            <p v-if="!isLoadingPending && !loadPendingError && allPendingInvites.length > 0 && filteredAndPaginatedPendingInvites.length === 0" class="no-data-message">
+                No pending invitations found matching your search criteria.
             </p>
       </section>
 
@@ -276,13 +317,37 @@ import { useRouter } from 'vue-router';
 const toast = useToast();
 const router = useRouter();
 
-// State... (activePatients, pendingInvites, assignModal, inviteModal etc.)
-const assignedPatients = ref([]); const isLoadingAssignedPatients = ref(true); const loadAssignedPatientsError = ref('');
-const pendingInvites = ref([]); const isLoadingPending = ref(true); const loadPendingError = ref(''); const isResending = reactive({}); const isCancelling = reactive({});
+// Original State for data fetched directly from API
+const allAssignedPatients = ref([]); // Stores the full list from API
+const allPendingInvites = ref([]); // Stores the full list from API
+
+// State for "My Patients" (now derived or directly used for full list)
+// const assignedPatients = ref([]); // This will be replaced by a computed property
+const isLoadingAssignedPatients = ref(true);
+const loadAssignedPatientsError = ref('');
+
+// State for "Pending Invitations" (now derived or directly used for full list)
+// const pendingInvites = ref([]); // This will be replaced by a computed property
+const isLoadingPending = ref(true);
+const loadPendingError = ref('');
+const isResending = reactive({});
+const isCancelling = reactive({});
+
+// Search and Pagination State for "My Patients"
+const assignedPatientsSearchTerm = ref('');
+const assignedPatientsCurrentPage = ref(1);
+const assignedPatientsPerPage = ref(10); // Or any default value you prefer
+
+// Search and Pagination State for "Pending Invitations"
+const pendingInvitesSearchTerm = ref('');
+const pendingInvitesCurrentPage = ref(1);
+const pendingInvitesPerPage = ref(10); // Or any default value
+
+// State for Modals (remains the same)
 const showAssignModal = ref(false); const patientToAssign = ref(null); const assignmentType = ref('package'); const availablePackages = ref([]); const availableServices = ref([]); const selectedPackageId = ref(null); const customServiceItems = ref([]); const planNotes = ref(''); const isAssigning = ref(false); const assignError = ref(''); const isLoadingPackages = ref(false); const loadPackagesError = ref(''); const isLoadingServices = ref(false); const loadServicesError = ref(''); const customItemsError = ref('');
 const showInviteModal = ref(false); const invitePatientEmail = ref(''); const isInvitingPatient = ref(false); const invitePatientError = ref('');
-const invitePatientName = ref(''); // Added for new field
-const invitePatientPhone = ref(''); // Added for new field
+const invitePatientName = ref('');
+const invitePatientPhone = ref('');
 
 // Edit Patient Modal State
 const showEditPatientModal = ref(false);
@@ -296,7 +361,65 @@ const editPatientForm = reactive({
 const isUpdatingPatient = ref(false);
 const editPatientError = ref('');
 
-// Computed...
+// Computed properties for "My Patients" list (Search and Pagination)
+const filteredAndPaginatedAssignedPatients = computed(() => {
+    let patients = allAssignedPatients.value;
+    if (assignedPatientsSearchTerm.value.trim() !== '') {
+        const searchTerm = assignedPatientsSearchTerm.value.toLowerCase();
+        patients = patients.filter(p =>
+            (p.name?.toLowerCase().includes(searchTerm)) ||
+            (p.email?.toLowerCase().includes(searchTerm)) ||
+            (p.phoneNumber?.toLowerCase().includes(searchTerm))
+        );
+    }
+    const start = (assignedPatientsCurrentPage.value - 1) * assignedPatientsPerPage.value;
+    const end = start + assignedPatientsPerPage.value;
+    return patients.slice(start, end);
+});
+
+const totalAssignedPatientPages = computed(() => {
+    let totalPatients = allAssignedPatients.value;
+    if (assignedPatientsSearchTerm.value.trim() !== '') {
+        const searchTerm = assignedPatientsSearchTerm.value.toLowerCase();
+        totalPatients = totalPatients.filter(p =>
+            (p.name?.toLowerCase().includes(searchTerm)) ||
+            (p.email?.toLowerCase().includes(searchTerm)) ||
+            (p.phoneNumber?.toLowerCase().includes(searchTerm))
+        );
+    }
+    return Math.ceil(totalPatients.length / assignedPatientsPerPage.value);
+});
+
+// Computed properties for "Pending Invitations" list (Search and Pagination)
+const filteredAndPaginatedPendingInvites = computed(() => {
+    let invites = allPendingInvites.value;
+    if (pendingInvitesSearchTerm.value.trim() !== '') {
+        const searchTerm = pendingInvitesSearchTerm.value.toLowerCase();
+        invites = invites.filter(i =>
+            (i.name?.toLowerCase().includes(searchTerm)) ||
+            (i.email?.toLowerCase().includes(searchTerm)) ||
+            (i.phoneNumber?.toLowerCase().includes(searchTerm))
+        );
+    }
+    const start = (pendingInvitesCurrentPage.value - 1) * pendingInvitesPerPage.value;
+    const end = start + pendingInvitesPerPage.value;
+    return invites.slice(start, end);
+});
+
+const totalPendingInvitePages = computed(() => {
+    let totalInvites = allPendingInvites.value;
+    if (pendingInvitesSearchTerm.value.trim() !== '') {
+        const searchTerm = pendingInvitesSearchTerm.value.toLowerCase();
+        totalInvites = totalInvites.filter(i =>
+            (i.name?.toLowerCase().includes(searchTerm)) ||
+            (i.email?.toLowerCase().includes(searchTerm)) ||
+            (i.phoneNumber?.toLowerCase().includes(searchTerm))
+        );
+    }
+    return Math.ceil(totalInvites.length / pendingInvitesPerPage.value);
+});
+
+// Generic computed for assignment modal (remains the same)
 const isAssignmentValid = computed(() => { if (assignmentType.value === 'package') { return !!selectedPackageId.value; } else if (assignmentType.value === 'custom') { if (customServiceItems.value.length === 0) return false; const allItemsValid = customServiceItems.value.every(item => item.serviceId && item.quantity >= 1); const noDuplicates = new Set(customServiceItems.value.map(i => i.serviceId)).size === customServiceItems.value.length; return allItemsValid && noDuplicates; } return false; });
 
 // Methods...
@@ -305,10 +428,12 @@ const formatCurrency = (value) => { if (value === null || value === undefined) r
 const fetchAllAssignedPatients = async () => {
     isLoadingAssignedPatients.value = true;
     loadAssignedPatientsError.value = '';
-    assignedPatients.value = [];
+    // assignedPatients.value = []; // Clear derived list indirectly by clearing source
+    allAssignedPatients.value = []; // Clear the source list
+    assignedPatientsCurrentPage.value = 1; // Reset to first page
     try {
         const response = await UserService.getAssignedPatients();
-        assignedPatients.value = response.data;
+        allAssignedPatients.value = response.data; // Store full list
     } catch (error) {
         console.error("Error fetching assigned patients:", error);
         const message = error.response?.data?.message || 'Failed to load patients.';
@@ -318,7 +443,26 @@ const fetchAllAssignedPatients = async () => {
         isLoadingAssignedPatients.value = false;
     }
 };
-const fetchAssignedPendingInvites = async () => { isLoadingPending.value = true; loadPendingError.value = ''; pendingInvites.value = []; isResending.clear?.(); isCancelling.clear?.(); try { const response = await MedicService.getPendingPatientInvites(); pendingInvites.value = response.data; } catch (error) { console.error("Error fetching pending invites:", error); const message = error.response?.data?.message || 'Failed to load pending invitations.'; loadPendingError.value = message; toast.error(message); } finally { isLoadingPending.value = false; } };
+const fetchAssignedPendingInvites = async () => {
+    isLoadingPending.value = true;
+    loadPendingError.value = '';
+    // pendingInvites.value = []; // Clear derived list indirectly by clearing source
+    allPendingInvites.value = []; // Clear the source list
+    pendingInvitesCurrentPage.value = 1; // Reset to first page
+    isResending.clear?.(); // Assuming isResending is a Map or similar; if not, adjust
+    isCancelling.clear?.(); // Assuming isCancelling is a Map or similar; if not, adjust
+    try {
+        const response = await MedicService.getPendingPatientInvites();
+        allPendingInvites.value = response.data; // Store full list
+    } catch (error) {
+        console.error("Error fetching pending invites:", error);
+        const message = error.response?.data?.message || 'Failed to load pending invitations.';
+        loadPendingError.value = message;
+        toast.error(message);
+    } finally {
+        isLoadingPending.value = false;
+    }
+};
 const fetchPackagesForModal = async () => { isLoadingPackages.value = true; loadPackagesError.value = ''; availablePackages.value = []; try { const response = await MedicService.getActiveCompanyPackages(); availablePackages.value = response.data; } catch (error) { console.error("Error fetching packages:", error); loadPackagesError.value = "Could not load packages."; toast.error(loadPackagesError.value); } finally { isLoadingPackages.value = false; } };
 const fetchServicesForModal = async () => { isLoadingServices.value = true; loadServicesError.value = ''; availableServices.value = []; try { const response = await MedicService.getActiveCompanyServices(); availableServices.value = response.data; } catch (error) { console.error("Error fetching services:", error); loadServicesError.value = "Could not load services."; toast.error(loadServicesError.value); } finally { isLoadingServices.value = false; } };
 const openAssignPlanModal = async (patient) => { patientToAssign.value = patient; assignmentType.value = 'package'; selectedPackageId.value = null; customServiceItems.value = []; planNotes.value = ''; assignError.value = ''; customItemsError.value = ''; isAssigning.value = false; showAssignModal.value = true; await Promise.all([fetchPackagesForModal(), fetchServicesForModal()]); };
@@ -334,8 +478,12 @@ const viewPatientPlan = (patientId) => {
     // Use the named route defined in the router
     router.push({ name: 'medic-patient-plan-detail', params: { patientId: patientId } });
     // toast.info(`View plan for Patient ${patientId} not implemented yet.`); // Remove toast
-};const scheduleAppointment = (patientId) => { toast.info(`Scheduling ${patientId} NYI.`); };
-const openInvitePatientModal = () => {
+};const scheduleAppointment = (patientId) => {
+    // toast.info(`Scheduling ${patientId} NYI.`);
+    router.push({ name: 'medic-calendar' }); // Navigate to the medic's calendar page
+    // Optionally, you could pass patientId as a query or param if the calendar page can use it:
+    // router.push({ name: 'medic-calendar', query: { patientId: patientId } });
+};const openInvitePatientModal = () => {
     invitePatientName.value = ''; // Reset new field
     invitePatientPhone.value = ''; // Reset new field
     invitePatientEmail.value = '';
@@ -381,11 +529,9 @@ const handleSendPatientInvitation = async () => {
             toast.success(`${invitePatientName.value} added as an offline patient.`);
         }
         closeInvitePatientModal();
-        // Refresh relevant lists - pending invites might now include offline patients
-        // or active patients if the backend activates them directly in some cases.
-        // For now, let's refresh both, assuming the backend might place them in either list.
-        await fetchAssignedPendingInvites(); // To see new pending (emailed or email-less)
-        await fetchAllAssignedPatients(); // Renamed call
+        // Refresh relevant lists
+        await fetchAssignedPendingInvites(); // Refreshes allPendingInvites and resets its pagination
+        await fetchAllAssignedPatients(); // Refreshes allAssignedPatients and resets its pagination
 
     } catch (error) {
         const message = error.response?.data?.message || 'Failed to add patient or send invitation.';
@@ -407,20 +553,36 @@ const handleResendInvite = async (invitee) => {
         // Assuming InvitationService.sendInvitation can handle a resend if email exists
         // Or a dedicated resend endpoint might be better.
         // For now, we reuse sendInvitation with email and role.
-        await InvitationService.sendInvitation({ 
-            name: invitee.name, 
-            phone: invitee.phoneNumber, 
-            email: invitee.email, 
-            role: 'USER' 
+        await InvitationService.sendInvitation({
+            name: invitee.name,
+            phone: invitee.phoneNumber,
+            email: invitee.email,
+            role: 'USER'
         });
         toast.success(`Invitation resent to ${invitee.email}.`);
+        // Potentially refresh pending invites if status/token might change on backend after resend
+        await fetchAssignedPendingInvites();
     } catch (error) {
         toast.error(error.response?.data?.message || 'Failed to resend invitation.');
     } finally {
         delete isResending[invitee.id];
     }
 };
-const handleCancelInvite = async (invitee) => { if (isCancelling[invitee.id] || !confirm(`Cancel invitation for ${invitee.name || invitee.email}?`)) return; isCancelling[invitee.id] = true; try { await UserService.cancelPatientInvitation(invitee.id); toast.success(`Invitation for ${invitee.name || invitee.email} cancelled.`); pendingInvites.value = pendingInvites.value.filter(p => p.id !== invitee.id); } catch (error) { toast.error(error.response?.data?.message || 'Failed to cancel.'); } finally { delete isCancelling[invitee.id]; } };
+const handleCancelInvite = async (invitee) => {
+    if (isCancelling[invitee.id] || !confirm(`Cancel invitation for ${invitee.name || invitee.email}?`)) return;
+    isCancelling[invitee.id] = true;
+    try {
+        await UserService.cancelPatientInvitation(invitee.id);
+        toast.success(`Invitation for ${invitee.name || invitee.email} cancelled.`);
+        // Instead of filtering pendingInvites.value directly, re-fetch the full list.
+        // pendingInvites.value = pendingInvites.value.filter(p => p.id !== invitee.id);
+        await fetchAssignedPendingInvites(); // This will update allPendingInvites and reset pagination.
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to cancel.');
+    } finally {
+        delete isCancelling[invitee.id];
+    }
+};
 
 // --- Edit Patient Modal Methods ---
 const openEditPatientModal = (patient) => {
@@ -468,16 +630,18 @@ const handleUpdatePatientDetails = async () => {
         };
         const updatedPatient = await UserService.updatePatientDetails(editPatientForm.id, payload);
 
-        // Update the local list
-        const index = assignedPatients.value.findIndex(p => p.id === editPatientForm.id);
-        if (index !== -1) {
-            assignedPatients.value[index] = { ...assignedPatients.value[index], ...updatedPatient.data };
-        }
-         // Also check and update in pendingInvites if the ID matches, though less likely to be edited from there
-        const pendingIndex = pendingInvites.value.findIndex(p => p.id === editPatientForm.id);
-        if (pendingIndex !== -1) {
-            pendingInvites.value[pendingIndex] = { ...pendingInvites.value[pendingIndex], ...updatedPatient.data };
-        }
+        // Update the local list by re-fetching. This is simpler than manually updating.
+        // const index = assignedPatients.value.findIndex(p => p.id === editPatientForm.id);
+        // if (index !== -1) {
+        //     assignedPatients.value[index] = { ...assignedPatients.value[index], ...updatedPatient.data };
+        // }
+        //  // Also check and update in pendingInvites if the ID matches, though less likely to be edited from there
+        // const pendingIndex = pendingInvites.value.findIndex(p => p.id === editPatientForm.id);
+        // if (pendingIndex !== -1) {
+        //     pendingInvites.value[pendingIndex] = { ...pendingInvites.value[pendingIndex], ...updatedPatient.data };
+        // }
+        await fetchAllAssignedPatients(); // Refreshes the main list
+        await fetchAssignedPendingInvites(); // Also refresh pending, in case status change affected it
 
         toast.success('Patient details updated successfully!');
         closeEditPatientModal();
@@ -488,6 +652,20 @@ const handleUpdatePatientDetails = async () => {
         toast.error(message);
     } finally {
         isUpdatingPatient.value = false;
+    }
+};
+
+// Pagination methods for "My Patients"
+const goToAssignedPatientsPage = (page) => {
+    if (page >= 1 && page <= totalAssignedPatientPages.value) {
+        assignedPatientsCurrentPage.value = page;
+    }
+};
+
+// Pagination methods for "Pending Invitations"
+const goToPendingInvitesPage = (page) => {
+    if (page >= 1 && page <= totalPendingInvitePages.value) {
+        pendingInvitesCurrentPage.value = page;
     }
 };
 
@@ -513,6 +691,16 @@ onMounted(async () => {
     .card h2 { color: var(--dark-color); margin-bottom: 0.5rem; font-size: 1.4rem; border-bottom: 1px solid #eee; padding-bottom: 0.8rem; }
     .card h2 + p { margin-top: 0.8rem; margin-bottom: 1.5rem; font-size: 1rem; color: #6c757d; }
     .list-section { overflow-x: auto; }
+
+    /* Search and List Controls */
+    .list-controls {
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: flex-end; /* Aligns search bar to the right */
+    }
+    .search-input {
+        max-width: 300px; /* Or any width you prefer */
+    }
 
     /* Table Layout */
     .data-table { width: 100%; border-collapse: collapse; }
@@ -587,5 +775,20 @@ onMounted(async () => {
     .status-inactive {
         color: var(--muted-color); /* Ensure --muted-color is defined in your global styles */
         font-style: italic;
+    }
+
+    /* Pagination Controls */
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.8rem;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+    .pagination-controls span {
+        font-size: 0.9rem;
+        color: var(--text-color);
     }
 </style>
