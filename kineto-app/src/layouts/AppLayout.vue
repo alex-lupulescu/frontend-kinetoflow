@@ -100,6 +100,12 @@
                  <span v-show="!isSidebarCollapsed">View Packages</span>
                </router-link>
              </li>
+             <li>
+               <router-link to="/app/medic/payments-overview" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                 <i class="fas fa-file-invoice-dollar nav-icon" title="Payments Overview"></i>
+                 <span v-show="!isSidebarCollapsed">Payments Due</span>
+               </router-link>
+             </li>
              <!-- Add Calendar Link later -->
              <!-- <li>
                 <router-link to="/app/medic/calendar" class="nav-link" active-class="active" @click="closeMobileSidebar">

@@ -32,6 +32,8 @@ import MedicViewServices from '../views/medic/MedicViewServices.vue';
 import MedicViewPackages from '../views/medic/MedicViewPackages.vue';
 import MedicPatientPlanDetail from '../views/medic/MedicPatientPlanDetail.vue'; // <-- Import new view
 import MedicCalendar from '../views/medic/MedicCalendar.vue'; // <-- Import Calendar View
+import MedicPatientPayments from '../views/medic/MedicPatientPayments.vue'; // <-- Import Payments View
+import MedicPaymentsOverview from '../views/medic/MedicPaymentsOverview.vue'; // <-- Import Payments Overview View
 // Generic/Shared
 import MyAccount from '../views/MyAccount.vue';
 import GenericDashboard from '../views/GenericDashboard.vue';
@@ -101,6 +103,19 @@ const routes = [
             { path: 'services', name: 'medic-services', component: MedicViewServices, meta: { title: 'View Services'} },
             { path: 'packages', name: 'medic-packages', component: MedicViewPackages, meta: { title: 'View Packages'} },
             { path: 'calendar', name: 'medic-calendar', component: MedicCalendar, meta: { title: 'My Schedule'} },
+            {
+              path: 'patients/:patientId/payments',
+              name: 'medic-patient-payments',
+              component: MedicPatientPayments,
+              props: true,
+              meta: { title: 'Patient Payments' }
+            },
+            {
+              path: 'payments-overview',
+              name: 'medic-payments-overview',
+              component: MedicPaymentsOverview,
+              meta: { title: 'Payments Overview' }
+            }
             // Add routes for calendar, patient detail/plan later
         ]
       },

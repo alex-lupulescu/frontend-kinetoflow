@@ -54,9 +54,13 @@
                     </span>
                 </td>
                 <td>
-                   <!-- View Plan Button (Future) -->
+                   <!-- View Plan Button -->
                    <button @click="viewPatientPlan(patient.id)" class="btn btn-info btn-sm" title="View Plan Details">
                       <i class="fas fa-eye"></i> Plan
+                   </button>
+                   <!-- Payments Button -->
+                   <button @click="viewPatientPayments(patient.id)" class="btn btn-success btn-sm" title="View Payments & Plan Financials">
+                      <i class="fas fa-credit-card"></i> Payments
                    </button>
                    <!-- Assign Plan Button -->
                    <button @click="openAssignPlanModal(patient)" class="btn btn-primary btn-sm" title="Assign New Plan/Package">
@@ -474,16 +478,18 @@ watch(customServiceItems, validateCustomItems, { deep: true });
 watch(assignmentType, (newValue) => { selectedPackageId.value = null; customServiceItems.value = []; customItemsError.value = ''; assignError.value = ''; if(newValue === 'custom') { addCustomItem(); } });
 const handleAssignPlan = async () => { assignError.value = ''; validateCustomItems(); if (!isAssignmentValid.value || customItemsError.value) { assignError.value = "Please correct errors."; toast.error(assignError.value); return; } isAssigning.value = true; try { let planData = { notes: planNotes.value }; if (assignmentType.value === 'package') { planData.packageId = selectedPackageId.value; } else { planData.serviceItems = customServiceItems.value.map(item => ({ serviceId: item.serviceId, quantity: item.quantity })); } await PatientPlanService.assignPlanToPatient(patientToAssign.value.id, planData); toast.success(`Plan assigned to ${patientToAssign.value.name}!`); closeAssignModal(); } catch (error) { console.error("Error assigning plan:", error); const message = error.response?.data?.message || 'Failed to assign plan.'; assignError.value = message; toast.error(message); } finally { isAssigning.value = false; } };
 const viewPatientPlan = (patientId) => {
-    console.log("Navigate to view/manage plan for patient ID:", patientId);
-    // Use the named route defined in the router
     router.push({ name: 'medic-patient-plan-detail', params: { patientId: patientId } });
-    // toast.info(`View plan for Patient ${patientId} not implemented yet.`); // Remove toast
-};const scheduleAppointment = (patientId) => {
+};
+const viewPatientPayments = (patientId) => {
+    router.push({ name: 'medic-patient-payments', params: { patientId: patientId } });
+};
+const scheduleAppointment = (patientId) => {
     // toast.info(`Scheduling ${patientId} NYI.`);
     router.push({ name: 'medic-calendar' }); // Navigate to the medic's calendar page
     // Optionally, you could pass patientId as a query or param if the calendar page can use it:
     // router.push({ name: 'medic-calendar', query: { patientId: patientId } });
-};const openInvitePatientModal = () => {
+};
+const openInvitePatientModal = () => {
     invitePatientName.value = ''; // Reset new field
     invitePatientPhone.value = ''; // Reset new field
     invitePatientEmail.value = '';
