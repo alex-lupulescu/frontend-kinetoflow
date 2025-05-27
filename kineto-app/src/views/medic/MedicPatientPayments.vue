@@ -18,6 +18,16 @@
             This patient has no assigned plans.
         </div>
 
+        <!-- Overall Due Amount Section -->
+        <div v-if="!isLoading && !error && plansWithPayments.length > 0" class="card total-due-card">
+            <h3>Total Amount Due: 
+                <span :class="{ 'text-danger': totalOverallDueAmount > 0, 'text-success': totalOverallDueAmount <= 0 }">
+                    {{ formatCurrency(totalOverallDueAmount) }}
+                </span>
+            </h3>
+            <p v-if="totalOverallDueAmount <= 0" class="text-muted small">All outstanding balances are settled.</p>
+        </div>
+
         <div v-if="!isLoading && !error && plansWithPayments.length > 0">
             <section v-for="plan in plansWithPayments" :key="plan.id" class="card plan-payment-card">
                 <div class="plan-header">
@@ -103,6 +113,16 @@ const error = ref(null);
 const showRecordPayment = ref(false);
 const planToRecordPaymentFor = ref(null);
 const expandedPlanPayments = reactive({}); // To toggle payment history visibility for each plan
+
+// Computed property for total overall due amount
+const totalOverallDueAmount = computed(() => {
+    return plansWithPayments.value.reduce((total, plan) => {
+        if (plan.dueAmount && plan.dueAmount > 0) {
+            return total + plan.dueAmount;
+        }
+        return total;
+    }, 0);
+});
 
 const fetchPatientDetails = async () => {
     try {
@@ -354,5 +374,23 @@ onMounted(async () => {
 .modal-close-button:hover { color: #777; }
 .modal-content h2 { color: var(--dark-color); margin-top: 0; margin-bottom: 1.5rem; font-size: 1.5rem; text-align: center; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
+
+.total-due-card {
+    background-color: var(--light-color-alt, #e9ecef); /* Slightly different background */
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.total-due-card h3 {
+    color: var(--dark-color);
+    margin-top: 0;
+    margin-bottom: 0.25rem;
+    font-size: 1.4rem;
+}
+
+.total-due-card p {
+    margin-top: 0.25rem;
+}
 
 </style> 
