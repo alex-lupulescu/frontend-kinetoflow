@@ -70,13 +70,8 @@
         const updateData = { name: editableProfile.name };
         const response = await UserService.updateMyProfile(updateData);
   
-        // IMPORTANT: Update the Pinia store and localStorage after successful profile update
-        // This ensures the name change reflects everywhere (e.g., top bar greeting)
-        // A better approach might be for the store action to handle this update.
-        // Simple example: Manually update relevant parts of the store's user object.
-        const updatedUserData = { ...authStore.user, name: response.data.name }; // Merge existing user data with new name
-        authStore.user = updatedUserData; // Directly update store state (if writable)
-        localStorage.setItem('kinetoflow_user', JSON.stringify(updatedUserData)); // Update localStorage too
+        // Use the new store action to update user state and localStorage
+        authStore.updateUserProfileLocally(response.data); // response.data should be UserSummaryDto
   
         toast.success("Profile updated successfully!");
   

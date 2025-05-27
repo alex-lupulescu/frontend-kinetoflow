@@ -34,6 +34,10 @@ import MedicPatientPlanDetail from '../views/medic/MedicPatientPlanDetail.vue'; 
 import MedicCalendar from '../views/medic/MedicCalendar.vue'; // <-- Import Calendar View
 import MedicPatientPayments from '../views/medic/MedicPatientPayments.vue'; // <-- Import Payments View
 import MedicPaymentsOverview from '../views/medic/MedicPaymentsOverview.vue'; // <-- Import Payments Overview View
+// User (Patient) Views
+import UserDashboard from '../views/user/UserDashboard.vue';
+import UserMyAppointments from '../views/user/UserMyAppointments.vue';
+import UserMyPlans from '../views/user/UserMyPlans.vue';
 // Generic/Shared
 import MyAccount from '../views/MyAccount.vue';
 import GenericDashboard from '../views/GenericDashboard.vue';
@@ -120,11 +124,33 @@ const routes = [
         ]
       },
 
-      // == Medic Routes (Placeholder Structure) ==
-      // { path: 'medic', ... }
-
-       // == User Routes (Placeholder Structure) ==
-      // { path: 'user', ... }
+      // == User Routes ==
+      {
+        path: 'user',
+        meta: { role: 'USER', breadcrumb: 'My Area' }, // Added USER role and breadcrumb
+        children: [
+          { path: '', redirect: { name: 'user-dashboard' } }, // Redirect /app/user to /app/user/dashboard
+          { 
+            path: 'dashboard', 
+            name: 'user-dashboard', 
+            component: UserDashboard, 
+            meta: { title: 'My Dashboard' } 
+          },
+          { 
+            path: 'my-appointments', 
+            name: 'user-appointments', 
+            component: UserMyAppointments, 
+            meta: { title: 'My Appointments' } 
+          },
+          { 
+            path: 'my-plan', 
+            name: 'user-my-plan', 
+            component: UserMyPlans, 
+            meta: { title: 'My Plan Details' } 
+          }
+          // Add other user routes here later (e.g., billing)
+        ]
+      }
     ]
   },
 

@@ -131,6 +131,36 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     /**
+     * Updates the user profile information locally in the store and localStorage.
+     * @param {object} updatedProfileData - The user data object, typically from an API response after an update.
+     */
+    function updateUserProfileLocally(updatedProfileData) {
+        if (!updatedProfileData) {
+            console.warn("AuthStore: Attempted to update user profile locally with invalid data.", updatedProfileData);
+            return;
+        }
+        
+        const currentUserData = user.value; // Existing full user data (includes token, role etc.)
+        
+        if (!currentUserData || !currentUserData.token) {
+            console.error("AuthStore: Cannot update profile locally. No existing user session with token found.");
+            // Optionally, could force logout here if state is very inconsistent
+            return;
+        }
+
+        // Merge: take all existing data, then override fields from updatedProfileData
+        user.value = {
+            ...currentUserData,          // Preserve token, role, userId, companyId etc.
+            name: updatedProfileData.name, // Update name from profile update response
+            email: updatedProfileData.email // Update email if it's part of updatedProfileData and can change
+            // Add other updatable fields from UserSummaryDto if necessary
+        };
+
+        localStorage.setItem('kinetoflow_user', JSON.stringify(user.value));
+        console.log("AuthStore: User profile updated locally and in localStorage.", user.value);
+    }
+
+    /**
      * Helper function to determine the default dashboard route path based on the user's role.
      * Matches the nested route structure defined in router/index.js.
      * @param {string | null} role - The user's role (e.g., 'APP_ADMIN', 'MEDIC').
@@ -142,7 +172,7 @@ export const useAuthStore = defineStore('auth', () => {
             case 'APP_ADMIN':       return '/app/admin/dashboard';
             case 'COMPANY_ADMIN':   return '/app/company/dashboard'; // Update with actual Company Admin dashboard route later
             case 'MEDIC':           return '/app/medic/dashboard';   // Update with actual Medic dashboard route later
-            case 'USER':            return '/app/user/my-plan';      // Update with actual User dashboard route later
+            case 'USER':            return '/app/user/dashboard';      // Changed from /app/user/my-plan
             default:                return '/app/dashboard'; // Fallback generic dashboard inside layout
         }
     }
@@ -168,6 +198,7 @@ export const useAuthStore = defineStore('auth', () => {
         getInvitationDetails,
         acceptInvitation,
         setReturnUrl,
+        updateUserProfileLocally, // Expose the new action
         getDefaultDashboardRoute // Expose helper if needed by components/guards directly
     };
 });

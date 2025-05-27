@@ -31,7 +31,21 @@ const UserService = {
 
     // --- General / Shared ---
     updateMyProfile(profileData) {
-         return apiClient.put('/users/me/profile', profileData);
+         return apiClient.put('/user/me/profile', profileData);
+    },
+
+    // --- User (Patient) specific ---
+    getUpcomingAppointmentsDashboard(limit = 3) { // Added for patient dashboard
+        return apiClient.get(`/user/dashboard/upcoming-appointments?limit=${limit}`);
+    },
+    getCurrentPlanDashboard() { // Added for patient dashboard
+        return apiClient.get('/user/dashboard/current-plan');
+    },
+    getAllMyAppointments() { // Added for patient's "My Appointments" page
+        return apiClient.get('/user/my-appointments');
+    },
+    getAllMyPlans() { // Added for patient's "My Plans" page
+        return apiClient.get('/user/my-plans');
     }
 };
 

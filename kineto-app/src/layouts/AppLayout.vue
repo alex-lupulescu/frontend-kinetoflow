@@ -117,13 +117,26 @@
 
            <!-- User Links -->
           <template v-if="authStore.userRole === 'USER'">
-             <!-- Add User links here, e.g., -->
-             <!-- <li>
-               <router-link to="/app/user/my-plan" class="nav-link" active-class="active" @click="closeMobileSidebar">
-                 <i class="fas fa-clipboard-list nav-icon"></i>
-                 <span v-if="!isSidebarCollapsed">My Plan</span>
-               </router-link>
-             </li> -->
+            <li class="nav-heading" v-show="!isSidebarCollapsed"><small>My Area</small></li>
+            <li>
+              <router-link :to="{ name: 'user-dashboard'}" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                <i class="fas fa-tachometer-alt nav-icon" title="My Dashboard"></i>
+                <span v-show="!isSidebarCollapsed">My Dashboard</span>
+              </router-link>
+            </li>
+            <li>
+              <router-link :to="{ name: 'user-appointments' }" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                <i class="fas fa-calendar-check nav-icon" title="My Appointments"></i>
+                <span v-show="!isSidebarCollapsed">My Appointments</span>
+              </router-link>
+            </li>
+            <li>
+              <router-link :to="{ name: 'user-my-plan' }" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                <i class="fas fa-file-alt nav-icon" title="My Plan Details"></i>
+                <span v-show="!isSidebarCollapsed">My Plan Details</span>
+              </router-link>
+            </li>
+            <!-- Add more user links here later, e.g., Billing -->
            </template>
 
           <!-- Separator -->
