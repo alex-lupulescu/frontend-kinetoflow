@@ -5,6 +5,11 @@
       <p>View the details of your assigned treatment plans.</p>
     </div>
 
+    <section v-if="!isLoading && !loadError && plans && plans.length > 0" class="card total-unpaid-section">
+      <h2>Total Outstanding Amount</h2>
+      <p class="total-unpaid-amount">{{ formatCurrency(totalUnpaidAmount) }}</p>
+    </section>
+
     <section class="card list-section">
       <div v-if="isLoading" class="loading-indicator">
         <i class="fas fa-spinner fa-spin"></i> Loading plan details...
@@ -66,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import UserService from '@/services/UserService';
 import { useToast } from 'vue-toastification';
 
@@ -74,6 +79,17 @@ const toast = useToast();
 const plans = ref([]);
 const isLoading = ref(true);
 const loadError = ref('');
+
+const totalUnpaidAmount = computed(() => {
+  if (!plans.value || plans.value.length === 0) {
+    return 0;
+  }
+  return plans.value.reduce((total, plan) => {
+    // Ensure dueAmount is a number, default to 0 if null, undefined, or not a number
+    const due = parseFloat(plan.dueAmount);
+    return total + (isNaN(due) ? 0 : due);
+  }, 0);
+});
 
 const fetchUserPlans = async () => {
   isLoading.value = true;
@@ -141,6 +157,7 @@ onMounted(() => {
   color: var(--text-muted-color);
   font-size: 1.1rem;
   margin-top: 0;
+  margin-bottom: 1.5rem;
 }
 .card {
   background-color: #fff;
@@ -290,5 +307,24 @@ onMounted(() => {
   color: #6c757d;
 }
 .error-message i { margin-right: 0.5rem; color: var(--danger-color); }
+
+.total-unpaid-section {
+  background-color: var(--warning-color-light);
+  border: 1px solid var(--warning-color);
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+.total-unpaid-section h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.4rem;
+  color: var(--warning-color-dark);
+}
+.total-unpaid-amount {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--danger-color);
+}
 
 </style> 

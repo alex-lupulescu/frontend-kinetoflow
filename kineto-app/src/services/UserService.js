@@ -46,6 +46,9 @@ const UserService = {
     },
     getAllMyPlans() { // Added for patient's "My Plans" page
         return apiClient.get('/user/my-plans');
+    },
+    getMyPlanDetails(planId) { // Added for fetching full details for a single plan
+        return apiClient.get(`/user/my-plans/${planId}`);
     }
 };
 
