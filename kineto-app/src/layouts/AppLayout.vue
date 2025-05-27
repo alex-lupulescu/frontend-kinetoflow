@@ -179,6 +179,8 @@
         <div class="top-bar-right">
           <span class="user-greeting">Hi, {{ authStore.userName }}</span>
           <div class="user-menu">
+            <!-- Notification Icon -->
+            <NotificationIcon />
             <!-- Settings Dropdown Placeholder -->
             <!-- <button class="settings-button" title="Settings"><i class="fas fa-cog"></i></button> -->
              <button @click="handleLogout" class="logout-button" title="Logout">
@@ -202,6 +204,7 @@
 import { ref, computed, watch } from 'vue';
 import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import NotificationIcon from '@/components/NotificationIcon.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -317,7 +320,15 @@ watch(() => route.path, () => {
 }
 .top-bar-right { display: flex; align-items: center; gap: 1.5rem; }
 .user-greeting { font-weight: 600; color: var(--text-color); white-space: nowrap; }
-.user-menu { position: relative; }
+.user-menu { 
+  position: relative; 
+  display: flex; 
+  align-items: center; 
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 12px;
+  padding: 0.25rem;
+}
 .logout-button { background: none; border: none; color: var(--dark-color); font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.8rem; border-radius: var(--border-radius); transition: background-color 0.2s ease, color 0.2s ease; }
 .logout-button:hover { background-color: #f1f3f5; color: var(--primary-color-start); }
 .logout-button i { font-size: 1.1rem; }
