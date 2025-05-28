@@ -125,6 +125,8 @@ const closeDropdown = () => {
 const handleMarkAsRead = async (notificationId) => {
   try {
     await notificationStore.markAsRead(notificationId);
+    // Sync to ensure consistency
+    await notificationStore.syncWithServer();
   } catch (error) {
     console.error('Failed to mark notification as read:', error);
   }
@@ -133,6 +135,8 @@ const handleMarkAsRead = async (notificationId) => {
 const handleDelete = async (notificationId) => {
   try {
     await notificationStore.deleteNotification(notificationId);
+    // Sync to ensure consistency
+    await notificationStore.syncWithServer();
   } catch (error) {
     console.error('Failed to delete notification:', error);
   }
@@ -144,6 +148,8 @@ const markAllAsRead = async () => {
   isMarkingAllRead.value = true;
   try {
     await notificationStore.markAllAsRead();
+    // Sync to ensure consistency
+    await notificationStore.syncWithServer();
   } catch (error) {
     console.error('Failed to mark all as read:', error);
   } finally {

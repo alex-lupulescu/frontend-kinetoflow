@@ -6,15 +6,36 @@ import apiClient from './api';
 class NotificationService {
     
     /**
-     * Get paginated notifications for the current user.
-     * @param {number} page - Page number (0-based)
-     * @param {number} size - Page size
-     * @param {boolean} unreadOnly - Whether to return only unread notifications
+     * Get paginated notifications for the current user with advanced filtering.
+     * @param {object} params - Query parameters
+     * @param {number} params.page - Page number (0-based)
+     * @param {number} params.size - Page size
+     * @param {string} params.sort - Sort criteria (e.g., 'createdAt,desc')
+     * @param {boolean} params.isRead - Filter by read status
+     * @param {string} params.type - Filter by notification type
      * @returns {Promise} API response with paginated notifications
      */
-    async getNotifications(page = 0, size = 10, unreadOnly = false) {
+    async getNotifications(params = {}) {
+        const {
+            page = 0,
+            size = 20,
+            sort = 'createdAt,desc',
+            isRead,
+            type
+        } = params;
+
+        const queryParams = { page, size, sort };
+        
+        // Only add filters if they have values
+        if (isRead !== undefined) {
+            queryParams.isRead = isRead;
+        }
+        if (type) {
+            queryParams.type = type;
+        }
+
         return apiClient.get('/notifications', {
-            params: { page, size, unreadOnly }
+            params: queryParams
         });
     }
 
@@ -61,6 +82,14 @@ class NotificationService {
      */
     async deleteNotification(notificationId) {
         return apiClient.delete(`/notifications/${notificationId}`);
+    }
+
+    /**
+     * Clear all notifications for the current user.
+     * @returns {Promise} API response
+     */
+    async clearAllNotifications() {
+        return apiClient.delete('/notifications/clear-all');
     }
 
     /**

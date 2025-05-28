@@ -41,6 +41,7 @@ import UserMyPlans from '../views/user/UserMyPlans.vue';
 // Generic/Shared
 import MyAccount from '../views/MyAccount.vue';
 import GenericDashboard from '../views/GenericDashboard.vue';
+import NotificationsPage from '../views/NotificationsPage.vue';
 
 const routes = [
   // --- Public Routes ---
@@ -59,6 +60,7 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: GenericDashboard, meta: { title: 'Dashboard' } },
       { path: 'account', name: 'my-account', component: MyAccount, meta: { title: 'My Account' } },
+      { path: 'notifications', name: 'notifications', component: NotificationsPage, meta: { title: 'Notifications' } },
 
       // == App Admin Routes ==
       {

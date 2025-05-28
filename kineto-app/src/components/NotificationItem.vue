@@ -2,8 +2,8 @@
   <div 
     class="notification-item" 
     :class="{ 
-      'unread': !notification.isRead, 
-      'read': notification.isRead 
+      'unread': !notification.read, 
+      'read': notification.read 
     }"
     @click="handleClick"
   >
@@ -24,13 +24,20 @@
       </div>
 
       <!-- Unread Indicator -->
-      <div v-if="!notification.isRead" class="unread-indicator"></div>
+      <div v-if="!notification.read" class="unread-indicator"></div>
     </div>
 
     <!-- Action Buttons -->
     <div class="notification-actions" @click.stop>
       <button 
-        v-if="!notification.isRead"
+        @click="showDetailsModal"
+        class="action-btn details-btn"
+        title="View details"
+      >
+        <i class="fas fa-info-circle"></i>
+      </button>
+      <button 
+        v-if="!notification.read"
         @click="markAsRead"
         class="action-btn mark-read-btn"
         title="Mark as read"
@@ -46,10 +53,20 @@
       </button>
     </div>
   </div>
+
+  <!-- Notification Details Modal -->
+  <NotificationDetailsModal
+    :notification="notification"
+    :isVisible="isModalVisible"
+    @close="closeModal"
+    @mark-read="handleMarkAsRead"
+    @delete="handleDelete"
+  />
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import NotificationDetailsModal from './NotificationDetailsModal.vue';
 
 const props = defineProps({
   notification: {
@@ -60,11 +77,17 @@ const props = defineProps({
 
 const emit = defineEmits(['mark-read', 'delete']);
 
+// Local state for modal
+const isModalVisible = ref(false);
+
 // Methods
 const handleClick = () => {
-  if (!props.notification.isRead) {
+  // Mark as read if not already read
+  if (!props.notification.read) {
     markAsRead();
   }
+  // Always show details modal when clicking on notification
+  showDetailsModal();
 };
 
 const markAsRead = () => {
@@ -73,6 +96,22 @@ const markAsRead = () => {
 
 const deleteNotification = () => {
   emit('delete', props.notification.id);
+};
+
+const showDetailsModal = () => {
+  isModalVisible.value = true;
+};
+
+const closeModal = () => {
+  isModalVisible.value = false;
+};
+
+const handleMarkAsRead = (id) => {
+  markAsRead();
+};
+
+const handleDelete = (id) => {
+  deleteNotification();
 };
 
 const getTypeIcon = (type) => {
@@ -270,6 +309,14 @@ const formatTime = (dateString) => {
   align-items: center;
   justify-content: center;
   font-size: 0.8rem;
+}
+
+.details-btn {
+  color: var(--primary-500);
+}
+
+.details-btn:hover {
+  background-color: var(--primary-50);
 }
 
 .mark-read-btn {
