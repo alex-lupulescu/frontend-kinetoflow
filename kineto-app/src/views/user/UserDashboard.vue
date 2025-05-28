@@ -592,7 +592,22 @@ onMounted(async () => {
     fetchFeedbackData(),
     fetchFeedbackNotifications()
   ]);
+  
+  // Check if URL contains #feedback hash and open modal automatically
+  checkForFeedbackHash();
 });
+
+// Add new method to check for feedback hash
+const checkForFeedbackHash = () => {
+  if (window.location.hash === '#feedback') {
+    // Only open modal if user has an assigned medic
+    if (assignedMedic.value) {
+      showFeedbackModal.value = true;
+      // Clear the hash from URL after opening modal
+      window.history.replaceState(null, null, window.location.pathname);
+    }
+  }
+};
 </script>
 
 <style scoped>

@@ -71,14 +71,14 @@ const FeedbackService = {
     },
 
     /**
-     * Updates the status of a feedback entry (ACTIVE/HIDDEN)
+     * Updates feedback status (ACTIVE/HIDDEN)
      */
     updateFeedbackStatus(feedbackId, status) {
         return apiClient.patch(`/feedback/${feedbackId}/status`, { status });
     },
 
     /**
-     * Creates a response to a feedback entry
+     * Creates a response to feedback
      */
     createFeedbackResponse(feedbackId, responseMessage) {
         return apiClient.post(`/feedback/${feedbackId}/response`, { responseMessage });

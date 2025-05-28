@@ -25,6 +25,7 @@ import CompanyAdminPatients from '../views/company-admin/CompanyAdminPatients.vu
 import CompanyProfile from '../views/company-admin/CompanyProfile.vue';
 import CompanyAdminServices from '../views/company-admin/CompanyAdminServices.vue'; // <-- New Import
 import CompanyAdminPackages from '../views/company-admin/CompanyAdminPackages.vue'; // <-- New Import
+import CompanyAdminFeedback from '../views/company-admin/CompanyAdminFeedback.vue'; // <-- New Import
 // Medic <<< --- NEW IMPORTS --- >>>
 import MedicDashboard from '../views/medic/MedicDashboard.vue';
 import MedicMyPatients from '../views/medic/MedicMyPatients.vue';
@@ -88,6 +89,7 @@ const routes = [
            // --- NEW ROUTES ---
            { path: 'services', name: 'company-admin-services', component: CompanyAdminServices, meta: { title: 'Manage Services' } },
            { path: 'packages', name: 'company-admin-packages', component: CompanyAdminPackages, meta: { title: 'Manage Packages' } },
+           { path: 'feedback', name: 'company-admin-feedback', component: CompanyAdminFeedback, meta: { title: 'Feedback Management' } },
            // --- END NEW ---
         ]
       },

@@ -53,6 +53,12 @@
               </router-link>
             </li>
             <li>
+              <router-link to="/app/company/feedback" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                <i class="fas fa-star nav-icon"></i>
+                <span v-if="!isSidebarCollapsed">Feedback</span>
+              </router-link>
+            </li>
+            <li>
               <router-link to="/app/company/services" class="nav-link" active-class="active" @click="closeMobileSidebar">
                 <i class="fas fa-concierge-bell nav-icon" title="Services"></i> <!-- Example icon -->
                 <span v-if="!isSidebarCollapsed">Services</span> <!-- Adjust v-if/v-show based on your working version -->
