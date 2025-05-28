@@ -208,22 +208,22 @@ onUnmounted(() => {
 }
 
 .notification-button:hover {
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: var(--primary-50);
   transform: translateY(-1px);
 }
 
 .notification-button.has-notifications:hover {
-  background-color: rgba(74, 144, 226, 0.15);
+  background-color: var(--primary-100);
 }
 
 .notification-icon {
   font-size: 1.4rem;
-  color: #6c757d;
+  color: var(--neutral-500);
   transition: all 0.2s ease;
 }
 
 .notification-button.has-notifications .notification-icon {
-  color: #4a90e2;
+  color: var(--primary-500);
   transform: scale(1.05);
 }
 
@@ -231,7 +231,7 @@ onUnmounted(() => {
   position: absolute;
   top: 2px;
   right: 2px;
-  background: linear-gradient(135deg, #ff4757, #ff3742);
+  background: linear-gradient(135deg, var(--error), #dc2626);
   color: white;
   border-radius: 50%;
   min-width: 20px;
@@ -242,8 +242,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  border: 2px solid white;
-  box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+  border: 2px solid var(--bg-primary);
+  box-shadow: var(--shadow-medium);
   z-index: 10;
 }
 
@@ -263,10 +263,10 @@ onUnmounted(() => {
   right: 0;
   width: 380px;
   max-height: 500px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e9ecef;
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--neutral-200);
   z-index: 1050;
   overflow: hidden;
   margin-top: 0.5rem;
@@ -274,18 +274,18 @@ onUnmounted(() => {
 
 .dropdown-header {
   padding: 1rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--neutral-200);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .dropdown-header h3 {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--neutral-800);
 }
 
 .header-actions {
@@ -297,11 +297,11 @@ onUnmounted(() => {
 .mark-all-read-btn {
   background: none;
   border: none;
-  color: #4a90e2;
+  color: var(--primary-500);
   font-size: 0.85rem;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
@@ -309,7 +309,7 @@ onUnmounted(() => {
 }
 
 .mark-all-read-btn:hover:not(:disabled) {
-  background-color: rgba(74, 144, 226, 0.1);
+  background-color: var(--primary-50);
 }
 
 .mark-all-read-btn:disabled {

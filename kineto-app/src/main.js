@@ -1,5 +1,6 @@
 // src/main.js
 
+import './assets/css/variables.css';
 import './assets/css/landing.css';
 
 import { createApp } from 'vue';

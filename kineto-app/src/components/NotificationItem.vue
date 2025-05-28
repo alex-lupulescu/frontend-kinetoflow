@@ -91,16 +91,16 @@ const getTypeIcon = (type) => {
 
 const getTypeColor = (type) => {
   const colorMap = {
-    'APPOINTMENT': '#28a745',
-    'PAYMENT': '#ffc107',
-    'PLAN_UPDATE': '#17a2b8',
-    'SYSTEM': '#6c757d',
-    'INVITATION': '#007bff',
-    'COMPANY': '#6f42c1',
-    'MEDIC_ASSIGNMENT': '#20c997',
-    'GENERAL': '#4a90e2'
+    'APPOINTMENT': '#0891f2',
+    'PAYMENT': '#22c55e',
+    'PLAN_UPDATE': '#3b82f6',
+    'SYSTEM': '#737373',
+    'INVITATION': '#f97316',
+    'COMPANY': '#8b5cf6',
+    'MEDIC_ASSIGNMENT': '#10b981',
+    'GENERAL': '#0891f2'
   };
-  return colorMap[type] || '#4a90e2';
+  return colorMap[type] || '#0891f2';
 };
 
 const formatType = (type) => {
@@ -143,14 +143,14 @@ const formatTime = (dateString) => {
   display: flex;
   align-items: flex-start;
   padding: 1rem;
-  border-bottom: 1px solid #f1f3f5;
+  border-bottom: 1px solid var(--neutral-200);
   cursor: pointer;
   transition: background-color 0.2s ease;
   position: relative;
 }
 
 .notification-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bg-secondary);
 }
 
 .notification-item:last-child {
@@ -158,8 +158,8 @@ const formatTime = (dateString) => {
 }
 
 .notification-item.unread {
-  background-color: #f8f9ff;
-  border-left: 3px solid #4a90e2;
+  background-color: var(--primary-50);
+  border-left: 3px solid var(--primary-500);
 }
 
 .notification-item.read {
@@ -179,7 +179,7 @@ const formatTime = (dateString) => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #f8f9fa;
+  background-color: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,14 +199,14 @@ const formatTime = (dateString) => {
   margin: 0 0 0.25rem 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--neutral-800);
   line-height: 1.3;
 }
 
 .notification-message {
   margin: 0 0 0.5rem 0;
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--neutral-600);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -222,13 +222,13 @@ const formatTime = (dateString) => {
 }
 
 .notification-time {
-  color: #9ca3af;
+  color: var(--neutral-400);
   font-weight: 500;
 }
 
 .notification-type-label {
-  color: #6c757d;
-  background-color: #e9ecef;
+  color: var(--neutral-600);
+  background-color: var(--neutral-200);
   padding: 0.125rem 0.375rem;
   border-radius: 12px;
   font-weight: 500;
@@ -242,9 +242,9 @@ const formatTime = (dateString) => {
   right: -0.5rem;
   width: 8px;
   height: 8px;
-  background-color: #dc3545;
+  background-color: var(--error);
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid var(--bg-primary);
 }
 
 .notification-actions {
@@ -273,19 +273,19 @@ const formatTime = (dateString) => {
 }
 
 .mark-read-btn {
-  color: #28a745;
+  color: var(--success);
 }
 
 .mark-read-btn:hover {
-  background-color: rgba(40, 167, 69, 0.1);
+  background-color: var(--secondary-50);
 }
 
 .delete-btn {
-  color: #dc3545;
+  color: var(--error);
 }
 
 .delete-btn:hover {
-  background-color: rgba(220, 53, 69, 0.1);
+  background-color: rgba(239, 68, 68, 0.1);
 }
 
 /* Mobile adjustments */
