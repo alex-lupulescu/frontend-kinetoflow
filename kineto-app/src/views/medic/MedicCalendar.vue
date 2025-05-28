@@ -56,6 +56,18 @@
         <button
           type="button"
           v-if="selectedInfo.event.extendedProps?.type === 'appointment' && selectedInfo.event.extendedProps?.status === 'SCHEDULED'"
+          class="btn btn-sm btn-success"
+          @click.stop="actionMarkCompleted"
+          :disabled="isProcessingAction"
+        >
+          <span v-if="isProcessingAction === 'markCompleted'"
+            ><i class="fas fa-spinner fa-spin"></i
+          ></span>
+          <span v-else><i class="fas fa-check-circle"></i> Mark Completed</span>
+        </button>
+        <button
+          type="button"
+          v-if="selectedInfo.event.extendedProps?.type === 'appointment' && selectedInfo.event.extendedProps?.status === 'SCHEDULED'"
           class="btn btn-sm btn-info"
           @click.stop="actionEditAppointment"
           :disabled="isProcessingAction"
@@ -531,6 +543,40 @@ function convertDayOfWeekToFCCalo(dayOfWeek) {
     SUNDAY: 0,
   };
   return mapping[dayOfWeek] !== undefined ? mapping[dayOfWeek] : -1; // Return -1 or handle error for unknown
+}
+
+async function actionMarkCompleted() {
+  const eventInfo = selectedInfo.value?.event;
+  if (!eventInfo || eventInfo.extendedProps?.type !== 'appointment' || eventInfo.extendedProps?.status !== 'SCHEDULED') {
+    clearSelection();
+    return;
+  }
+  
+  const appointmentIdStr = eventInfo.id.startsWith('appt-') ? eventInfo.id.substring(5) : eventInfo.id;
+  const appointmentId = parseInt(appointmentIdStr, 10);
+  
+  if (!appointmentId || isNaN(appointmentId)) {
+    toast.error("Invalid appointment ID.");
+    clearSelection();
+    return;
+  }
+  
+  if (!confirm(`Mark appointment "${eventInfo.title}" as completed? This will trigger a feedback request notification to the patient.`)) {
+    clearSelection();
+    return;
+  }
+  
+  isProcessingAction.value = 'markCompleted';
+  try {
+    await MedicService.markAppointmentCompleted(appointmentId);
+    toast.success("Appointment marked as completed. Patient will be notified to leave feedback.");
+    clearSelection();
+    fullCalendar.value?.getApi().refetchEvents();
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Failed to mark appointment as completed.");
+  } finally {
+    isProcessingAction.value = false;
+  }
 }
 </script>
 

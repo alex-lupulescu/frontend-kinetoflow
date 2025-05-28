@@ -5,6 +5,27 @@
       <p class="text-muted">Here's a quick overview of your activities.</p>
     </header>
 
+    <!-- Feedback Request Notification Banner -->
+    <div v-if="hasPendingFeedbackRequests" class="feedback-notification-banner">
+      <div class="notification-content">
+        <div class="notification-icon">
+          <i class="fas fa-star"></i>
+        </div>
+        <div class="notification-text">
+          <h3>Your feedback is requested!</h3>
+          <p>You have completed sessions that need your feedback. Help us improve by rating your experience.</p>
+        </div>
+        <div class="notification-actions">
+          <button @click="showFeedbackModal = true" class="btn btn-primary">
+            <i class="fas fa-star"></i> Leave Feedback
+          </button>
+          <button @click="dismissFeedbackNotification" class="btn btn-secondary">
+            <i class="fas fa-times"></i> Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+
     <section class="quick-links-header-bar">
       <div class="quick-links-content">
         <ul class="content-list quick-links-list modern">
@@ -85,6 +106,64 @@
           </div>
           <div class="card-footer" v-if="!isLoadingPlan && !loadPlanError && currentPlan">
             <router-link :to="{ name: 'user-my-plan' }" @click.stop class="btn btn-secondary btn-sm">View Plan Details</router-link>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feedback Section -->
+      <section v-if="authStore.userRole === 'USER'" class="dashboard-card feedback-card">
+        <div class="card-header">
+          <i class="fas fa-star card-icon"></i>
+          <h2>Rate Your Medic</h2>
+        </div>
+        <div class="card-content">
+          <div v-if="isLoadingFeedback" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i> Loading feedback...
+          </div>
+          <div v-else-if="loadFeedbackError" class="error-state">
+            <i class="fas fa-exclamation-triangle"></i> {{ loadFeedbackError }}
+          </div>
+          <div v-else-if="!assignedMedic" class="empty-state">
+            <i class="fas fa-user-md"></i>
+            <p>You don't have an assigned medic yet.</p>
+          </div>
+          <div v-else class="feedback-content">
+            <div class="medic-info">
+              <h4>{{ assignedMedic.name }}</h4>
+              <p class="medic-subtitle">Your assigned medic</p>
+            </div>
+            
+            <div v-if="existingFeedback" class="existing-feedback">
+              <div class="feedback-display">
+                <StarRating 
+                  :rating="existingFeedback.rating" 
+                  :show-value="true"
+                  :show-count="false"
+                />
+                <span class="feedback-date">
+                  Rated on {{ formatDateTime(existingFeedback.createdAt, 'date') }}
+                </span>
+              </div>
+              <div v-if="existingFeedback.message" class="feedback-message">
+                <p>"{{ existingFeedback.message }}"</p>
+              </div>
+              <div v-if="existingFeedback.hasResponse" class="admin-response-preview">
+                <div class="response-indicator">
+                  <i class="fas fa-reply"></i>
+                  <span>Company responded</span>
+                </div>
+              </div>
+              <button @click="showFeedbackModal = true" class="btn btn-secondary btn-sm">
+                <i class="fas fa-edit"></i> Update Feedback
+              </button>
+            </div>
+            
+            <div v-else class="no-feedback">
+              <p>Share your experience with {{ assignedMedic.name }}</p>
+              <button @click="showFeedbackModal = true" class="btn btn-primary">
+                <i class="fas fa-star"></i> Leave Feedback
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -242,6 +321,14 @@
       </div>
     </div>
 
+    <!-- Feedback Modal -->
+    <CreateFeedbackModal 
+      v-model:show="showFeedbackModal"
+      :medic-name="assignedMedic?.name || ''"
+      :existing-feedback="existingFeedback"
+      @feedback-submitted="handleFeedbackSubmitted"
+    />
+
   </div>
 </template>
 
@@ -250,6 +337,10 @@ import { useAuthStore } from '@/stores/auth';
 import { RouterLink, useRouter } from 'vue-router';
 import { onMounted, ref, computed } from 'vue';
 import UserService from '@/services/UserService';
+import FeedbackService from '@/services/FeedbackService';
+import NotificationService from '@/services/NotificationService';
+import StarRating from '@/components/StarRating.vue';
+import CreateFeedbackModal from '@/components/CreateFeedbackModal.vue';
 // Toast not used directly in this version of the dashboard logic, but keep if other parts might need it
 // import { useToast } from 'vue-toastification';
 
@@ -268,6 +359,18 @@ const currentPlan = ref(null);
 const isLoadingPlan = ref(true);
 const loadPlanError = ref('');
 
+// Feedback State
+const assignedMedic = ref(null);
+const existingFeedback = ref(null);
+const isLoadingFeedback = ref(true);
+const loadFeedbackError = ref('');
+const showFeedbackModal = ref(false);
+
+// Notification State
+const feedbackNotifications = ref([]);
+const isLoadingNotifications = ref(false);
+const dismissedFeedbackNotifications = ref(new Set());
+
 // Modal State
 const isModalVisible = ref(false);
 const selectedAppointment = ref(null);
@@ -275,6 +378,15 @@ const isPlanModalVisible = ref(false);
 const selectedPlanDetails = ref(null); // To store fully fetched plan details
 const isLoadingPlanDetails = ref(false); // Loading state for plan modal
 const loadPlanDetailsError = ref(''); // Error state for plan modal
+
+// Computed property to check if there are pending feedback requests
+const hasPendingFeedbackRequests = computed(() => {
+  return feedbackNotifications.value.some(notification => 
+    notification.type === 'FEEDBACK_REQUEST' && 
+    !notification.read && 
+    !dismissedFeedbackNotifications.value.has(notification.id)
+  );
+});
 
 const fetchUpcomingAppointments = async () => {
   isLoadingAppointments.value = true;
@@ -312,6 +424,77 @@ const fetchCurrentPlan = async () => {
   } finally {
     isLoadingPlan.value = false;
   }
+};
+
+const fetchFeedbackData = async () => {
+  isLoadingFeedback.value = true;
+  loadFeedbackError.value = '';
+  try {
+    // First get assigned medic info from current plan or user profile
+    const userResponse = await UserService.getCurrentUser();
+    if (userResponse.data && userResponse.data.assignedMedicId) {
+      assignedMedic.value = {
+        id: userResponse.data.assignedMedicId,
+        name: userResponse.data.assignedMedicName || 'Your Medic'
+      };
+      
+      // Then try to get existing feedback
+      try {
+        const feedbackResponse = await FeedbackService.getMyFeedback();
+        // Check if we actually got feedback data
+        if (feedbackResponse.status === 204 || !feedbackResponse.data) {
+          existingFeedback.value = null;
+        } else {
+          existingFeedback.value = feedbackResponse.data;
+        }
+      } catch (feedbackError) {
+        // If no feedback exists (404 or 204), that's normal
+        if (feedbackError.response?.status !== 404 && feedbackError.response?.status !== 204) {
+          console.error("Error fetching feedback:", feedbackError);
+        }
+        existingFeedback.value = null;
+      }
+    } else {
+      assignedMedic.value = null;
+      existingFeedback.value = null;
+    }
+  } catch (error) {
+    console.error("Error fetching feedback data:", error);
+    loadFeedbackError.value = error.response?.data?.message || 'Failed to load feedback data.';
+  } finally {
+    isLoadingFeedback.value = false;
+  }
+};
+
+const fetchFeedbackNotifications = async () => {
+  isLoadingNotifications.value = true;
+  try {
+    const response = await NotificationService.getNotifications({
+      type: 'FEEDBACK_REQUEST',
+      read: false,
+      limit: 10
+    });
+    feedbackNotifications.value = response.data.notifications || [];
+  } catch (error) {
+    console.error("Error fetching feedback notifications:", error);
+    // Don't show error to user for notifications, just log it
+  } finally {
+    isLoadingNotifications.value = false;
+  }
+};
+
+const dismissFeedbackNotification = () => {
+  // Mark all current feedback request notifications as dismissed locally
+  feedbackNotifications.value.forEach(notification => {
+    if (notification.type === 'FEEDBACK_REQUEST' && !notification.read) {
+      dismissedFeedbackNotifications.value.add(notification.id);
+    }
+  });
+};
+
+const handleFeedbackSubmitted = (feedbackData) => {
+  existingFeedback.value = feedbackData;
+  showFeedbackModal.value = false;
 };
 
 const formatDateTime = (dateTimeString, part) => {
@@ -405,7 +588,9 @@ const navigateToPlanDetails = () => {
 onMounted(async () => {
   await Promise.all([
     fetchUpcomingAppointments(),
-    fetchCurrentPlan()
+    fetchCurrentPlan(),
+    fetchFeedbackData(),
+    fetchFeedbackNotifications()
   ]);
 });
 </script>
@@ -1111,4 +1296,258 @@ onMounted(async () => {
 
 /* FontAwesome import (if not already global) */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+/* Feedback Card Styles */
+.feedback-card {
+  background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+  border-left: 4px solid #ffc107;
+}
+
+.feedback-card .card-icon {
+  color: #ffc107;
+}
+
+.feedback-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.medic-info {
+  text-align: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.medic-info h4 {
+  margin: 0 0 0.25rem;
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.medic-subtitle {
+  margin: 0;
+  color: var(--text-muted-light);
+  font-size: 0.9rem;
+}
+
+.existing-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.feedback-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feedback-date {
+  font-size: 0.85rem;
+  color: var(--text-muted-light);
+}
+
+.feedback-message {
+  background-color: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: var(--border-radius, 6px);
+  border-left: 3px solid var(--primary-color);
+}
+
+.feedback-message p {
+  margin: 0;
+  font-style: italic;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+
+.admin-response-preview {
+  background-color: #e8f4fd;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius, 6px);
+  border-left: 3px solid #17a2b8;
+}
+
+.response-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #0c5460;
+  font-weight: 500;
+}
+
+.no-feedback {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.no-feedback p {
+  margin: 0 0 1rem;
+  color: var(--text-muted-light);
+}
+
+.feedback-card .btn {
+  align-self: center;
+  min-width: 140px;
+}
+
+.feedback-card .btn-primary {
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+  border-color: #ffc107;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.feedback-card .btn-primary:hover {
+  background: linear-gradient(135deg, #ffb300 0%, #ff8f00 100%);
+  border-color: #ffb300;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+}
+
+.feedback-card .btn-secondary {
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+  color: var(--text-dark);
+}
+
+.feedback-card .btn-secondary:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+/* Responsive adjustments for feedback card */
+@media (max-width: 768px) {
+  .feedback-card .btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+/* Feedback Notification Banner Styles */
+.feedback-notification-banner {
+  background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(245, 158, 11, 0.1);
+  animation: slideInFromTop 0.5s ease-out;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.notification-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: #f59e0b;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.25rem;
+}
+
+.notification-text {
+  flex: 1;
+}
+
+.notification-text h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.notification-text p {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.notification-actions .btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notification-actions .btn-primary {
+  background: #f59e0b;
+  color: white;
+}
+
+.notification-actions .btn-primary:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
+.notification-actions .btn-secondary {
+  background: rgba(146, 64, 14, 0.1);
+  color: #92400e;
+  border: 1px solid rgba(146, 64, 14, 0.2);
+}
+
+.notification-actions .btn-secondary:hover {
+  background: rgba(146, 64, 14, 0.2);
+}
+
+/* Mobile responsive for notification banner */
+@media (max-width: 768px) {
+  .feedback-notification-banner {
+    padding: 1rem;
+  }
+  
+  .notification-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .notification-icon {
+    align-self: center;
+  }
+  
+  .notification-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .notification-actions .btn {
+    justify-content: center;
+  }
+}
 </style> 

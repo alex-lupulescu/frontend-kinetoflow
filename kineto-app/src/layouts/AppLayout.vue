@@ -88,6 +88,12 @@
                  <span v-show="!isSidebarCollapsed">My Schedule</span>
                </router-link>
              </li>
+             <li>
+               <router-link to="/app/medic/feedback" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                 <i class="fas fa-star nav-icon" title="My Feedback"></i>
+                 <span v-show="!isSidebarCollapsed">My Feedback</span>
+               </router-link>
+             </li>
               <li>
                <router-link to="/app/medic/services" class="nav-link" active-class="active" @click="closeMobileSidebar">
                  <i class="fas fa-concierge-bell nav-icon" title="View Services"></i>
@@ -106,13 +112,6 @@
                  <span v-show="!isSidebarCollapsed">Payments Due</span>
                </router-link>
              </li>
-             <!-- Add Calendar Link later -->
-             <!-- <li>
-                <router-link to="/app/medic/calendar" class="nav-link" active-class="active" @click="closeMobileSidebar">
-                 <i class="fas fa-calendar-alt nav-icon" title="My Schedule"></i>
-                 <span v-show="!isSidebarCollapsed">My Schedule</span>
-               </router-link>
-             </li> -->
            </template>
 
            <!-- User Links -->

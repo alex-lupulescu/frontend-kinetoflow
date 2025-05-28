@@ -34,6 +34,7 @@ import MedicPatientPlanDetail from '../views/medic/MedicPatientPlanDetail.vue'; 
 import MedicCalendar from '../views/medic/MedicCalendar.vue'; // <-- Import Calendar View
 import MedicPatientPayments from '../views/medic/MedicPatientPayments.vue'; // <-- Import Payments View
 import MedicPaymentsOverview from '../views/medic/MedicPaymentsOverview.vue'; // <-- Import Payments Overview View
+import MedicFeedback from '../views/medic/MedicFeedback.vue'; // <-- Import Feedback View
 // User (Patient) Views
 import UserDashboard from '../views/user/UserDashboard.vue';
 import UserMyAppointments from '../views/user/UserMyAppointments.vue';
@@ -109,6 +110,7 @@ const routes = [
             { path: 'services', name: 'medic-services', component: MedicViewServices, meta: { title: 'View Services'} },
             { path: 'packages', name: 'medic-packages', component: MedicViewPackages, meta: { title: 'View Packages'} },
             { path: 'calendar', name: 'medic-calendar', component: MedicCalendar, meta: { title: 'My Schedule'} },
+            { path: 'feedback', name: 'medic-feedback', component: MedicFeedback, meta: { title: 'My Feedback'} },
             {
               path: 'patients/:patientId/payments',
               name: 'medic-patient-payments',

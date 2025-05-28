@@ -8,10 +8,10 @@
            <h3>Quick Access</h3>
           <ul>
               <li><router-link to="/app/medic/my-patients">My Patients</router-link></li>
+              <li><router-link to="/app/medic/feedback">My Feedback</router-link></li>
               <li><router-link to="/app/medic/services">View Services</router-link></li>
               <li><router-link to="/app/medic/packages">View Packages</router-link></li>
-              <!-- Add link to calendar later -->
-              <!-- <li><router-link to="/app/medic/calendar">My Schedule</router-link></li> -->
+              <li><router-link to="/app/medic/calendar">My Schedule</router-link></li>
           </ul>
       </div>
     </div>

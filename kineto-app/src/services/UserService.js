@@ -34,6 +34,10 @@ const UserService = {
          return apiClient.put('/user/me/profile', profileData);
     },
 
+    getCurrentUser() { // Added for getting current user profile
+        return apiClient.get('/user/me');
+    },
+
     // --- User (Patient) specific ---
     getUpcomingAppointmentsDashboard(limit = 3) { // Added for patient dashboard
         return apiClient.get(`/user/dashboard/upcoming-appointments?limit=${limit}`);

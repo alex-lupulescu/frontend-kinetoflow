@@ -47,6 +47,11 @@ const MedicService = {
         return apiClient.patch(`/medic/appointments/${appointmentId}/cancel`, cancellationData);
     },
 
+    // Mark appointment as completed
+    markAppointmentCompleted(appointmentId) {
+        return apiClient.patch(`/medic/appointments/${appointmentId}/complete`);
+    },
+
     deleteAppointment(appointmentId) {
         return apiClient.delete(`/medic/appointments/${appointmentId}`);
     },

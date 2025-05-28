@@ -123,6 +123,9 @@ const getTypeIcon = (type) => {
     'INVITATION': 'fas fa-user-plus',
     'COMPANY': 'fas fa-building',
     'MEDIC_ASSIGNMENT': 'fas fa-user-md',
+    'FEEDBACK_REQUEST': 'fas fa-star',
+    'FEEDBACK_RECEIVED': 'fas fa-comment-dots',
+    'FEEDBACK_RESPONSE': 'fas fa-reply',
     'GENERAL': 'fas fa-info-circle'
   };
   return iconMap[type] || 'fas fa-bell';
@@ -137,6 +140,9 @@ const getTypeColor = (type) => {
     'INVITATION': '#f97316',
     'COMPANY': '#8b5cf6',
     'MEDIC_ASSIGNMENT': '#10b981',
+    'FEEDBACK_REQUEST': '#f59e0b',
+    'FEEDBACK_RECEIVED': '#8b5cf6',
+    'FEEDBACK_RESPONSE': '#06b6d4',
     'GENERAL': '#0891f2'
   };
   return colorMap[type] || '#0891f2';
@@ -151,6 +157,9 @@ const formatType = (type) => {
     'INVITATION': 'Invitation',
     'COMPANY': 'Company',
     'MEDIC_ASSIGNMENT': 'Medic Assignment',
+    'FEEDBACK_REQUEST': 'Feedback Request',
+    'FEEDBACK_RECEIVED': 'Feedback Received',
+    'FEEDBACK_RESPONSE': 'Feedback Response',
     'GENERAL': 'General'
   };
   return typeMap[type] || type;

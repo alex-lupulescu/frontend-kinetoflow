@@ -80,6 +80,9 @@
             <option value="INVITATION">Invitations</option>
             <option value="COMPANY">Company</option>
             <option value="MEDIC_ASSIGNMENT">Medic Assignment</option>
+            <option value="FEEDBACK_REQUEST">Feedback Requests</option>
+            <option value="FEEDBACK_RECEIVED">Feedback Received</option>
+            <option value="FEEDBACK_RESPONSE">Feedback Responses</option>
             <option value="SYSTEM">System</option>
             <option value="GENERAL">General</option>
           </select>
@@ -176,10 +179,12 @@ import { useRouter } from 'vue-router';
 import { useNotificationStore } from '@/stores/notifications';
 import { useToast } from 'vue-toastification';
 import NotificationCard from '@/components/NotificationCard.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
 const notificationStore = useNotificationStore();
 const toast = useToast();
+const authStore = useAuthStore();
 
 // State
 const isLoading = ref(false);
@@ -312,6 +317,27 @@ const navigateToRelatedContent = (notification) => {
         
       case 'MEDIC_ASSIGNMENT':
         router.push('/app/medic/my-patients');
+        break;
+        
+      case 'FEEDBACK_REQUEST':
+        // Navigate to user dashboard where they can leave feedback
+        router.push('/app/user/dashboard');
+        break;
+        
+      case 'FEEDBACK_RECEIVED':
+        // Navigate to medic feedback page to view received feedback
+        if (authStore.userRole === 'MEDIC') {
+          router.push('/app/medic/feedback');
+        } else if (authStore.userRole === 'COMPANY_ADMIN') {
+          router.push('/app/company/feedback');
+        } else {
+          router.push('/app/user/dashboard');
+        }
+        break;
+        
+      case 'FEEDBACK_RESPONSE':
+        // Navigate to user dashboard to view company response
+        router.push('/app/user/dashboard');
         break;
         
       default:
