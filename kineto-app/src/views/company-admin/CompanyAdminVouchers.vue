@@ -52,7 +52,7 @@
             <i class="fas fa-coins"></i>
           </div>
           <div class="stat-content">
-            <div class="stat-number">{{ stats.totalDiscount }}</div>
+            <div class="stat-number">{{ formattedTotalDiscount }}</div>
             <div class="stat-label">Discount Total (RON)</div>
           </div>
         </div>
@@ -237,9 +237,15 @@
                     </div>
                   </div>
                   
-                  <div v-if="isExpiringSoon(voucher)" class="expiring-alert">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>Acest voucher expiră în curând!</span>
+                  <div v-if="getExpiryStatus(voucher).status !== 'active'" 
+                       class="expiring-alert" 
+                       :class="`expiring-alert--${getExpiryStatus(voucher).status}`">
+                    <i class="fas" :class="{
+                      'fa-exclamation-triangle': getExpiryStatus(voucher).status === 'expires-soon',
+                      'fa-clock': getExpiryStatus(voucher).status === 'expires-today',
+                      'fa-times-circle': getExpiryStatus(voucher).status === 'expired'
+                    }"></i>
+                    <span>{{ getExpiryStatus(voucher).message }}</span>
                   </div>
                 </div>
               </div>
@@ -352,7 +358,8 @@ export default {
         expiringSoon: 0
       },
       searchTimeout: null,
-      showCreateModal: false
+      showCreateModal: false,
+      warningDaysBeforeExpiry: 7
     };
   },
   computed: {
@@ -365,6 +372,9 @@ export default {
         pages.push(i);
       }
       return pages;
+    },
+    formattedTotalDiscount() {
+      return this.formatDiscountAmount(this.stats.totalDiscount);
     }
   },
   methods: {
@@ -411,19 +421,39 @@ export default {
       }
     },
 
+    formatDiscountAmount(amount) {
+      if (typeof amount !== 'number' || isNaN(amount)) return '0';
+      return amount.toFixed(2);
+    },
+
     async loadStats() {
       try {
         // Calculate stats from current vouchers
         this.stats.activeVouchers = this.vouchers.filter(v => v.status === 'ACTIVE').length;
         this.stats.totalUsages = this.vouchers.reduce((sum, v) => sum + (v.currentUses || 0), 0);
-        this.stats.expiringSoon = this.vouchers.filter(v => this.isExpiringSoon(v)).length;
         
-        // For total discount, you might want to make a separate API call
-        // This is a simplified calculation
-        this.stats.totalDiscount = 0; // Would need backend calculation
+        // Count vouchers that expire soon or today, but only active ones
+        this.stats.expiringSoon = this.vouchers.filter(v => {
+          const expiryStatus = this.getExpiryStatus(v);
+          return v.status === 'ACTIVE' && 
+                 (expiryStatus.status === 'expires-soon' || expiryStatus.status === 'expires-today');
+        }).length;
+        
+        // Get total discount from backend (calculated from voucher_usages)
+        await this.loadTotalDiscount();
         
       } catch (error) {
         console.error('Error loading stats:', error);
+      }
+    },
+
+    async loadTotalDiscount() {
+      try {
+        const response = await VoucherService.getTotalDiscountFromUsages();
+        this.stats.totalDiscount = response.totalDiscount || 0;
+      } catch (error) {
+        console.error('Error loading total discount:', error);
+        this.stats.totalDiscount = 0;
       }
     },
 
@@ -495,12 +525,95 @@ export default {
       return new Date(dateString).toLocaleDateString('ro-RO');
     },
 
-    isExpiringSoon(voucher) {
-      if (!voucher.endDate) return false;
-      const endDate = new Date(voucher.endDate);
+    // Configuration method for warning period
+    setWarningDaysBeforeExpiry(days) {
+      this.warningDaysBeforeExpiry = Math.max(1, Math.min(30, days)); // Between 1 and 30 days
+      this.loadStats(); // Recalculate stats with new warning period
+    },
+
+    getWarningDaysBeforeExpiry() {
+      return this.warningDaysBeforeExpiry;
+    },
+
+    // Helper method for testing date calculations
+    testDateCalculation(endDateString) {
+      const endDate = new Date(endDateString);
+      endDate.setHours(0, 0, 0, 0);
+      
       const today = new Date();
-      const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-      return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+      today.setHours(0, 0, 0, 0);
+      
+      const timeDiff = endDate.getTime() - today.getTime();
+      const daysUntilExpiry = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+      
+      console.log(`Test date calculation for ${endDateString}:`);
+      console.log(`End date: ${endDate.toISOString()}`);
+      console.log(`Today: ${today.toISOString()}`);
+      console.log(`Time difference: ${timeDiff}ms`);
+      console.log(`Days until expiry: ${daysUntilExpiry}`);
+      
+      return daysUntilExpiry;
+    },
+
+    isExpiringSoon(voucher) {
+      // Only check active vouchers
+      if (!voucher.endDate || voucher.status !== 'ACTIVE') return false;
+      
+      // Use same date comparison logic as getExpiryStatus
+      const endDate = new Date(voucher.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const timeDiff = endDate.getTime() - today.getTime();
+      const daysUntilExpiry = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+      
+      // Configurable warning period (default 7 days)
+      const warningDays = this.warningDaysBeforeExpiry || 7;
+      
+      return daysUntilExpiry <= warningDays && daysUntilExpiry > 0;
+    },
+
+    getExpiryStatus(voucher) {
+      if (!voucher.endDate) return { status: 'no-expiry', message: '', daysLeft: null };
+      
+      // Parse dates and set to start of day for accurate comparison
+      const endDate = new Date(voucher.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Calculate difference in days using date comparison, not time
+      const timeDiff = endDate.getTime() - today.getTime();
+      const daysUntilExpiry = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry < 0) {
+        return { 
+          status: 'expired', 
+          message: `Expirat acum ${Math.abs(daysUntilExpiry)} zile`, 
+          daysLeft: daysUntilExpiry 
+        };
+      } else if (daysUntilExpiry === 0) {
+        return { 
+          status: 'expires-today', 
+          message: 'Expiră astăzi', 
+          daysLeft: 0 
+        };
+      } else if (daysUntilExpiry <= (this.warningDaysBeforeExpiry || 7)) {
+        return { 
+          status: 'expires-soon', 
+          message: `Expiră în ${daysUntilExpiry} zile`, 
+          daysLeft: daysUntilExpiry 
+        };
+      } else {
+        return { 
+          status: 'active', 
+          message: `Expiră în ${daysUntilExpiry} zile`, 
+          daysLeft: daysUntilExpiry 
+        };
+      }
     },
 
     getDiscountBadgeClass(discountType) {
@@ -539,7 +652,7 @@ export default {
     showErrorMessage(message) {
       // Implement toast notification
       alert(message);
-    }
+    },
   },
 
   async mounted() {
@@ -1120,6 +1233,31 @@ export default {
   border: 1px solid var(--accent-200);
 }
 
+/* Specific styles for different expiry statuses */
+.expiring-alert--expires-soon {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-color: #fbbf24;
+}
+
+.expiring-alert--expires-today {
+  background-color: #fed7d7;
+  color: #9b2c2c;
+  border-color: #fc8181;
+  animation: pulse 2s infinite;
+}
+
+.expiring-alert--expired {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
 /* Voucher Actions */
 .voucher-actions {
   display: flex;
@@ -1278,5 +1416,11 @@ export default {
     gap: var(--space-2);
     text-align: center;
   }
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
 }
 </style> 

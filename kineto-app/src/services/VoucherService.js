@@ -88,6 +88,19 @@ class VoucherService {
   }
 
   /**
+   * Get total discount amount calculated from actual voucher usages
+   */
+  async getTotalDiscountFromUsages() {
+    try {
+      const response = await api.get('/admin/vouchers/total-discount');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching total discount from usages:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get usage history for a specific voucher
    */
   async getVoucherUsageHistoryById(voucherId, page = 0, size = 20) {
