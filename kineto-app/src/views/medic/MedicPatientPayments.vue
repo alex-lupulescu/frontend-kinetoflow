@@ -41,8 +41,11 @@
                 <div class="financial-summary">
                     <div>Total Cost: <strong>{{ formatCurrency(plan.totalPlanCost) }}</strong></div>
                     <div>Amount Paid: <strong>{{ formatCurrency(plan.paidAmount) }}</strong></div>
-                    <div :class="{ 'text-danger': plan.dueAmount > 0, 'text-success': plan.dueAmount <= 0 }">
-                        Amount Due: <strong>{{ formatCurrency(plan.dueAmount) }}</strong>
+                    <div v-if="getVoucherDiscountForPlan(plan) > 0" class="voucher-savings">
+                        Voucher Savings: <strong>{{ formatCurrency(getVoucherDiscountForPlan(plan)) }}</strong>
+                    </div>
+                    <div :class="{ 'text-danger': getCorrectDueAmount(plan) > 0, 'text-success': getCorrectDueAmount(plan) <= 0 }">
+                        Amount Due: <strong>{{ formatCurrency(getCorrectDueAmount(plan)) }}</strong>
                     </div>
                 </div>
 
@@ -117,8 +120,9 @@ const expandedPlanPayments = reactive({}); // To toggle payment history visibili
 // Computed property for total overall due amount
 const totalOverallDueAmount = computed(() => {
     return plansWithPayments.value.reduce((total, plan) => {
-        if (plan.dueAmount && plan.dueAmount > 0) {
-            return total + plan.dueAmount;
+        const correctDue = getCorrectDueAmount(plan);
+        if (correctDue && correctDue > 0) {
+            return total + correctDue;
         }
         return total;
     }, 0);
@@ -220,6 +224,45 @@ const getPlanStatusClass = (status) => {
     }
 };
 
+const getVoucherDiscountForPlan = (plan) => {
+    if (!plan.payments || plan.payments.length === 0) return 0;
+    
+    let totalVoucherDiscount = 0;
+    
+    plan.payments.forEach(payment => {
+        // Check if payment notes contain voucher information
+        if (payment.notes && payment.notes.includes('Voucher applied:')) {
+            // Extract discount amount from notes
+            const voucherMatch = payment.notes.match(/Voucher applied:.*?\(([0-9.]+)\s*(RON|USD|\$)/i);
+            if (voucherMatch) {
+                const discountAmount = parseFloat(voucherMatch[1]);
+                if (!isNaN(discountAmount)) {
+                    totalVoucherDiscount += discountAmount;
+                }
+            }
+        }
+        
+        // Also check if payment has voucher-related fields (for future backend integration)
+        if (payment.voucherDiscount) {
+            totalVoucherDiscount += parseFloat(payment.voucherDiscount) || 0;
+        }
+    });
+    
+    return totalVoucherDiscount;
+};
+
+const getCorrectDueAmount = (plan) => {
+    const totalCost = plan.totalPlanCost || 0;
+    const paidAmount = plan.paidAmount || 0;
+    const voucherSavings = getVoucherDiscountForPlan(plan);
+    
+    // Correct calculation: Due = Total - (Paid + Voucher Savings)
+    const effectivePaidAmount = paidAmount + voucherSavings;
+    const dueAmount = Math.max(0, totalCost - effectivePaidAmount);
+    
+    return dueAmount;
+};
+
 const goBack = () => {
     // router.back(); // simple back
     // Or, go to a specific patient list page if that's more consistent UX
@@ -294,6 +337,19 @@ onMounted(async () => {
 }
 .text-success strong {
     color: var(--success-color);
+}
+
+.voucher-savings {
+    color: #28a745;
+    font-size: 0.9em;
+    background-color: #d4edda;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #c3e6cb;
+}
+
+.voucher-savings strong {
+    color: #155724;
 }
 
 .plan-actions {

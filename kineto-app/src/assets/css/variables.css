@@ -55,13 +55,13 @@
   --error: #ef4444;
   --info: #3b82f6;
 
-  /* Background Colors */
+  /* Background Colors - Always light theme */
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
   --bg-dark: #1e293b;
 
-  /* Text Colors */
+  /* Text Colors - Always dark text for readability */
   --text-primary: var(--neutral-900);
   --text-secondary: var(--neutral-700);
   --text-muted: var(--neutral-500);
@@ -173,20 +173,8 @@
   --border-radius-large: var(--radius-2xl);
 }
 
-/* Dark Mode Support (pentru viitor) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --text-primary: #f8fafc;
-    --text-secondary: #e2e8f0;
-    --text-muted: #94a3b8;
-    --border-light: #334155;
-    --border-medium: #475569;
-    --border-dark: #64748b;
-  }
-}
+/* Force light theme regardless of system preferences */
+/* This ensures text remains dark and readable even when system is in dark mode */
 
 /* Utility Classes */
 .text-primary { color: var(--primary-500); }
