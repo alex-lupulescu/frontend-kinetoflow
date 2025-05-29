@@ -47,9 +47,17 @@ const MedicService = {
         return apiClient.patch(`/medic/appointments/${appointmentId}/cancel`, cancellationData);
     },
 
-    // Mark appointment as completed
-    markAppointmentCompleted(appointmentId) {
-        return apiClient.patch(`/medic/appointments/${appointmentId}/complete`);
+    /**
+     * Mark appointment as completed (triggers feedback request)
+     */
+    async markAppointmentCompleted(appointmentId) {
+        try {
+            const response = await apiClient.patch(`/medic/appointments/${appointmentId}/complete`);
+            return response.data;
+        } catch (error) {
+            console.error('Error marking appointment completed:', error);
+            throw error;
+        }
     },
 
     deleteAppointment(appointmentId) {
@@ -64,8 +72,89 @@ const MedicService = {
     setMyWorkingHours(workingHoursData) {
         // The backend expects a list of MedicWorkingHoursDto
         return apiClient.post('/medic/working-hours', workingHoursData);
+    },
+
+    // --- Vacation Days Management ---
+
+    /**
+     * Get all vacation days for the current medic
+     */
+    async getVacationDays() {
+        try {
+            const response = await apiClient.get('/medic/vacation-days');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching vacation days:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Add a new vacation period
+     */
+    async addVacationPeriod(vacationData) {
+        try {
+            const response = await apiClient.post('/medic/vacation-days', vacationData);
+            return response.data;
+        } catch (error) {
+            console.error('Error adding vacation period:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete a vacation period
+     */
+    async deleteVacationPeriod(vacationId) {
+        try {
+            const response = await apiClient.delete(`/medic/vacation-days/${vacationId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting vacation period:', error);
+            throw error;
+        }
+    },
+
+    // --- Extra Work Days Management ---
+
+    /**
+     * Get all extra work days for the current medic
+     */
+    async getExtraWorkDays() {
+        try {
+            const response = await apiClient.get('/medic/extra-work-days');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching extra work days:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Add a new extra work day
+     */
+    async addExtraWorkDay(extraWorkData) {
+        try {
+            const response = await apiClient.post('/medic/extra-work-days', extraWorkData);
+            return response.data;
+        } catch (error) {
+            console.error('Error adding extra work day:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete an extra work day
+     */
+    async deleteExtraWorkDay(extraWorkId) {
+        try {
+            const response = await apiClient.delete(`/medic/extra-work-days/${extraWorkId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting extra work day:', error);
+            throw error;
+        }
     }
-    // Add methods for assigning plans, creating appointments later
 };
 
 export default MedicService;

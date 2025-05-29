@@ -3,9 +3,17 @@
     <!-- Header -->
     <div class="page-header">
       <h1>My Schedule</h1>
+      <div class="header-actions">
       <button @click="openWorkingHoursModal" class="btn btn-secondary">
         <i class="fas fa-clock"></i> Set Working Hours
       </button>
+        <button @click="openVacationDaysModal" class="btn btn-info">
+          <i class="fas fa-umbrella-beach"></i> Vacation Days
+        </button>
+        <button @click="openExtraWorkDaysModal" class="btn btn-success">
+          <i class="fas fa-plus-circle"></i> Extra Work Days
+        </button>
+      </div>
     </div>
 
     <!-- Loading/Error State Overlay -->
@@ -213,6 +221,20 @@
       @saved="handleWorkingHoursSaved"
     />
 
+    <!-- Vacation Days Modal -->
+    <VacationDaysModal
+      v-if="showVacationDaysModal"
+      @close="closeVacationDaysModal"
+      @saved="handleVacationDaysSaved"
+    />
+
+    <!-- Extra Work Days Modal -->
+    <ExtraWorkDaysModal
+      v-if="showExtraWorkDaysModal"
+      @close="closeExtraWorkDaysModal"
+      @saved="handleExtraWorkDaysSaved"
+    />
+
   </div>
 </template>
 
@@ -235,6 +257,8 @@ import { useToast } from "vue-toastification";
 import AppointmentFormModal from "@/components/AppointmentFormModal.vue";
 import CancelAppointmentModal from "@/components/CancelAppointmentModal.vue"; // Import Cancel Modal
 import MedicWorkingHoursModal from "@/components/MedicWorkingHoursModal.vue"; // Import the new modal
+import VacationDaysModal from "@/components/VacationDaysModal.vue";
+import ExtraWorkDaysModal from "@/components/ExtraWorkDaysModal.vue";
 
 const toast = useToast();
 const fullCalendar = ref(null);
@@ -259,6 +283,10 @@ const isDeletingAppointment = ref(false);
 // Working Hours Modal State
 const showWorkingHoursModal = ref(false);
 const medicBusinessHours = ref([]); // To store fetched business hours
+// Vacation Days Modal State
+const showVacationDaysModal = ref(false);
+// Extra Work Days Modal State
+const showExtraWorkDaysModal = ref(false);
 
 // --- Calendar Options ---
 const calendarOptions = reactive({
@@ -578,6 +606,36 @@ async function actionMarkCompleted() {
     isProcessingAction.value = false;
   }
 }
+
+// --- Vacation Days Modal Logic ---
+function openVacationDaysModal() {
+    showVacationDaysModal.value = true;
+}
+
+function closeVacationDaysModal() {
+    showVacationDaysModal.value = false;
+}
+
+function handleVacationDaysSaved() {
+    closeVacationDaysModal();
+    toast.success('Vacation days updated successfully.');
+    if (fullCalendar.value) fullCalendar.value.getApi().refetchEvents();
+}
+
+// --- Extra Work Days Modal Logic ---
+function openExtraWorkDaysModal() {
+    showExtraWorkDaysModal.value = true;
+}
+
+function closeExtraWorkDaysModal() {
+    showExtraWorkDaysModal.value = false;
+}
+
+function handleExtraWorkDaysSaved() {
+    closeExtraWorkDaysModal();
+    toast.success('Extra work days updated successfully.');
+    if (fullCalendar.value) fullCalendar.value.getApi().refetchEvents();
+}
 </script>
 
 <style scoped>
@@ -677,5 +735,16 @@ async function actionMarkCompleted() {
       padding-top: 1.5rem;
       border-top: 1px solid #eee;
       flex-shrink: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .header-actions .btn {
+      font-size: 0.9rem;
+      padding: 0.6rem 1rem;
     }
 </style>
