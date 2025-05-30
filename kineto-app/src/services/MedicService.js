@@ -154,6 +154,87 @@ const MedicService = {
             console.error('Error deleting extra work day:', error);
             throw error;
         }
+    },
+
+    // --- Dashboard Data Methods ---
+
+    /**
+     * Get all patients assigned to the current medic
+     */
+    async getMyPatients() {
+        try {
+            const response = await apiClient.get('/medic/my-patients');
+            return response;
+        } catch (error) {
+            console.error('Error fetching my patients:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get today's appointments for the current medic
+     */
+    async getTodaysAppointments() {
+        try {
+            const response = await apiClient.get('/medic/appointments/today');
+            return response;
+        } catch (error) {
+            console.error('Error fetching today\'s appointments:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get feedback summary for the current medic
+     */
+    async getMyFeedbackSummary() {
+        try {
+            const response = await apiClient.get('/medic/feedback-summary');
+            return response;
+        } catch (error) {
+            console.error('Error fetching feedback summary:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get today's schedule for the current medic (appointments with patient and service details)
+     */
+    async getTodaysSchedule() {
+        try {
+            const response = await apiClient.get('/medic/schedule/today');
+            return response;
+        } catch (error) {
+            console.error('Error fetching today\'s schedule:', error);
+            // Fallback to empty data if endpoint doesn't exist yet
+            return { data: [] };
+        }
+    },
+
+    /**
+     * Get appointment details by ID
+     */
+    async getAppointmentDetails(appointmentId) {
+        try {
+            const response = await apiClient.get(`/appointments/${appointmentId}`);
+            return response;
+        } catch (error) {
+            console.error('Error fetching appointment details:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get recent activities for the medic dashboard
+     */
+    async getRecentActivities() {
+        try {
+            const response = await apiClient.get('/medic/recent-activities');
+            return response;
+        } catch (error) {
+            console.error('Error fetching recent activities:', error);
+            throw error;
+        }
     }
 };
 
