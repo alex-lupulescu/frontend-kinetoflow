@@ -142,6 +142,12 @@ const getTypeIcon = (type) => {
     'FEEDBACK_REQUEST': 'fas fa-star',
     'FEEDBACK_RECEIVED': 'fas fa-comment-dots',
     'FEEDBACK_RESPONSE': 'fas fa-reply',
+    'VACATION_REQUEST': 'fas fa-umbrella-beach',
+    'VACATION_APPROVED': 'fas fa-check-circle',
+    'VACATION_REJECTED': 'fas fa-times-circle',
+    'EXTRA_WORK_REQUEST': 'fas fa-plus-circle',
+    'EXTRA_WORK_APPROVED': 'fas fa-check-circle',
+    'EXTRA_WORK_REJECTED': 'fas fa-times-circle',
     'GENERAL': 'fas fa-info-circle'
   };
   return iconMap[type] || 'fas fa-bell';
@@ -159,6 +165,12 @@ const getTypeColor = (type) => {
     'FEEDBACK_REQUEST': '#f59e0b',
     'FEEDBACK_RECEIVED': '#8b5cf6',
     'FEEDBACK_RESPONSE': '#06b6d4',
+    'VACATION_REQUEST': '#f97316',
+    'VACATION_APPROVED': '#22c55e',
+    'VACATION_REJECTED': '#dc2626',
+    'EXTRA_WORK_REQUEST': '#f97316',
+    'EXTRA_WORK_APPROVED': '#22c55e',
+    'EXTRA_WORK_REJECTED': '#dc2626',
     'GENERAL': '#0891f2'
   };
   return colorMap[type] || '#0891f2';
@@ -176,6 +188,12 @@ const getTypeBackgroundColor = (type) => {
     'FEEDBACK_REQUEST': '#fef3c7',
     'FEEDBACK_RECEIVED': '#faf5ff',
     'FEEDBACK_RESPONSE': '#cffafe',
+    'VACATION_REQUEST': '#fff7ed',
+    'VACATION_APPROVED': '#f0fdf4',
+    'VACATION_REJECTED': '#fef3c7',
+    'EXTRA_WORK_REQUEST': '#fff7ed',
+    'EXTRA_WORK_APPROVED': '#f0fdf4',
+    'EXTRA_WORK_REJECTED': '#fef3c7',
     'GENERAL': '#f0f7ff'
   };
   return colorMap[type] || '#f0f7ff';
@@ -193,6 +211,12 @@ const formatType = (type) => {
     'FEEDBACK_REQUEST': 'Feedback Request',
     'FEEDBACK_RECEIVED': 'Feedback Received',
     'FEEDBACK_RESPONSE': 'Feedback Response',
+    'VACATION_REQUEST': 'Vacation Request',
+    'VACATION_APPROVED': 'Vacation Approved',
+    'VACATION_REJECTED': 'Vacation Rejected',
+    'EXTRA_WORK_REQUEST': 'Extra Work Request',
+    'EXTRA_WORK_APPROVED': 'Extra Work Approved',
+    'EXTRA_WORK_REJECTED': 'Extra Work Rejected',
     'GENERAL': 'General'
   };
   return typeMap[type] || type;
@@ -238,6 +262,14 @@ const getRelatedEntityText = (notification) => {
       return 'Company profile';
     case 'MEDIC_ASSIGNMENT':
       return 'Patient assignment';
+    case 'VACATION_REQUEST':
+    case 'VACATION_APPROVED':
+    case 'VACATION_REJECTED':
+      return `Vacation Request #${relatedEntityId}`;
+    case 'EXTRA_WORK_REQUEST':
+    case 'EXTRA_WORK_APPROVED':
+    case 'EXTRA_WORK_REJECTED':
+      return `Extra Work Request #${relatedEntityId}`;
     default:
       return `Related item #${relatedEntityId}`;
   }

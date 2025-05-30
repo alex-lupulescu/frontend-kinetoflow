@@ -27,6 +27,7 @@ import CompanyAdminServices from '../views/company-admin/CompanyAdminServices.vu
 import CompanyAdminPackages from '../views/company-admin/CompanyAdminPackages.vue'; // <-- New Import
 import CompanyAdminFeedback from '../views/company-admin/CompanyAdminFeedback.vue'; // <-- New Import
 import CompanyAdminVouchers from '../views/company-admin/CompanyAdminVouchers.vue'; // <-- Voucher Import
+import CompanyAdminApprovals from '../views/company-admin/CompanyAdminApprovals.vue'; // <-- Approval Import
 // Medic <<< --- NEW IMPORTS --- >>>
 import MedicDashboard from '../views/medic/MedicDashboard.vue';
 import MedicMyPatients from '../views/medic/MedicMyPatients.vue';
@@ -92,6 +93,7 @@ const routes = [
            { path: 'packages', name: 'company-admin-packages', component: CompanyAdminPackages, meta: { title: 'Manage Packages' } },
            { path: 'feedback', name: 'company-admin-feedback', component: CompanyAdminFeedback, meta: { title: 'Feedback Management' } },
            { path: 'vouchers', name: 'company-admin-vouchers', component: CompanyAdminVouchers, meta: { title: 'Manage Vouchers' } },
+           { path: 'approvals', name: 'company-admin-approvals', component: CompanyAdminApprovals, meta: { title: 'Manage Approvals' } },
            // --- END NEW ---
         ]
       },

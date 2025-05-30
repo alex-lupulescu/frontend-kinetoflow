@@ -91,6 +91,76 @@
           </form>
         </div>
 
+        <!-- Planned Extra Work Days (Approved & Future/Current) -->
+        <div v-if="plannedExtraWork.length > 0" class="planned-extra-work-section">
+          <h3><i class="fas fa-calendar-check"></i> Planned Extra Work Days</h3>
+          <p class="section-description">Your approved and pending extra work days that are current or upcoming.</p>
+          <div class="extra-work-list planned-list">
+            <div
+              v-for="extraWork in plannedExtraWork"
+              :key="`planned-${extraWork.id}`"
+              class="extra-work-item planned-extra-work"
+              :class="{ 'current-extra-work': isCurrentExtraWork(extraWork) }"
+            >
+              <div class="extra-work-info">
+                <div class="extra-work-date">
+                  <i class="fas fa-calendar-day"></i>
+                  {{ formatDate(extraWork.workDate) }}
+                  <span class="work-time">
+                    {{ formatTime(extraWork.startTime) }} - {{ formatTime(extraWork.endTime) }}
+                  </span>
+                </div>
+                <div class="extra-work-type">
+                  <span class="type-badge" :class="getTypeBadgeClass(extraWork.workType)">
+                    {{ formatWorkType(extraWork.workType) }}
+                  </span>
+                </div>
+                <div v-if="extraWork.reason" class="extra-work-reason">
+                  <i class="fas fa-comment"></i> {{ extraWork.reason }}
+                </div>
+                <div class="extra-work-status-row">
+                  <div class="extra-work-status">
+                    <span v-if="isCurrentExtraWork(extraWork)" class="status-badge current">
+                      <i class="fas fa-play-circle"></i> Today
+                    </span>
+                    <span v-else class="status-badge future">
+                      <i class="fas fa-calendar-plus"></i> Upcoming
+                    </span>
+                  </div>
+                  <div class="approval-status">
+                    <span 
+                      v-if="extraWork.approvalStatus === 'APPROVED'" 
+                      class="approval-badge approved"
+                    >
+                      <i class="fas fa-check"></i> Approved
+                    </span>
+                    <span 
+                      v-else-if="extraWork.approvalStatus === 'PENDING'" 
+                      class="approval-badge pending"
+                    >
+                      <i class="fas fa-clock"></i> Pending Approval
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="extra-work-actions">
+                <button
+                  v-if="extraWork.approvalStatus === 'PENDING'"
+                  @click="deleteExtraWorkDay(extraWork.id)"
+                  class="btn btn-sm btn-danger"
+                  :disabled="isProcessing"
+                  title="Delete extra work day"
+                >
+                  <i class="fas fa-trash"></i> Delete
+                </button>
+                <span v-else-if="extraWork.approvalStatus === 'APPROVED'" class="approved-notice">
+                  <i class="fas fa-shield-alt"></i> Protected - Cannot be deleted
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Existing Extra Work Days -->
         <div class="existing-extra-work-section">
           <h3>Existing Extra Work Days</h3>
@@ -120,15 +190,44 @@
                 <div v-if="extraWork.reason" class="extra-work-reason">
                   <i class="fas fa-comment"></i> {{ extraWork.reason }}
                 </div>
-                <div class="extra-work-status">
-                  <span v-if="isPastExtraWork(extraWork)" class="status-badge past">Past</span>
-                  <span v-else-if="isCurrentExtraWork(extraWork)" class="status-badge current">Today</span>
-                  <span v-else class="status-badge future">Upcoming</span>
+                <div class="extra-work-status-row">
+                  <div class="extra-work-status">
+                    <span v-if="isPastExtraWork(extraWork)" class="status-badge past">Past</span>
+                    <span v-else-if="isCurrentExtraWork(extraWork)" class="status-badge current">Today</span>
+                    <span v-else class="status-badge future">Upcoming</span>
+                  </div>
+                  <div class="approval-status">
+                    <span 
+                      v-if="extraWork.approvalStatus === 'PENDING'" 
+                      class="approval-badge pending"
+                      title="Pending approval"
+                    >
+                      <i class="fas fa-clock"></i> Pending
+                    </span>
+                    <span 
+                      v-else-if="extraWork.approvalStatus === 'APPROVED'" 
+                      class="approval-badge approved"
+                      :title="`Approved by ${extraWork.approvedByName || 'Admin'} on ${formatApprovalDate(extraWork.approvalDate)}`"
+                    >
+                      <i class="fas fa-check"></i> Approved
+                    </span>
+                    <span 
+                      v-else-if="extraWork.approvalStatus === 'REJECTED'" 
+                      class="approval-badge rejected"
+                      :title="`Rejected by ${extraWork.approvedByName || 'Admin'} on ${formatApprovalDate(extraWork.approvalDate)}${extraWork.rejectionReason ? ': ' + extraWork.rejectionReason : ''}`"
+                    >
+                      <i class="fas fa-times"></i> Rejected
+                    </span>
+                  </div>
+                </div>
+                <div v-if="extraWork.approvalStatus === 'REJECTED' && extraWork.rejectionReason" class="rejection-reason">
+                  <i class="fas fa-exclamation-triangle"></i> 
+                  <strong>Rejection Reason:</strong> {{ extraWork.rejectionReason }}
                 </div>
               </div>
               <div class="extra-work-actions">
                 <button
-                  v-if="!isPastExtraWork(extraWork)"
+                  v-if="!isPastExtraWork(extraWork) && (extraWork.approvalStatus === 'PENDING' || extraWork.approvalStatus === 'REJECTED')"
                   @click="deleteExtraWorkDay(extraWork.id)"
                   class="btn btn-sm btn-danger"
                   :disabled="isProcessing"
@@ -136,6 +235,9 @@
                 >
                   <i class="fas fa-trash"></i>
                 </button>
+                <span v-else-if="extraWork.approvalStatus === 'APPROVED'" class="approved-notice">
+                  <i class="fas fa-info-circle"></i> Approved requests cannot be deleted
+                </span>
               </div>
             </div>
           </div>
@@ -182,13 +284,32 @@ const isValidExtraWorkForm = computed(() => {
          newExtraWork.value.startTime < newExtraWork.value.endTime;
 });
 
+// Computed property for planned extra work (approved and pending future/current)
+const plannedExtraWork = computed(() => {
+  if (!extraWorkDays.value) return [];
+  
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+  
+  return extraWorkDays.value.filter(extraWork => {
+    // Only approved or pending extra work (exclude rejected)
+    if (extraWork.approvalStatus === 'REJECTED') return false;
+    
+    // Only current or future extra work (not past)
+    const workDate = new Date(extraWork.workDate);
+    workDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
+    return workDate >= currentDate;
+  }).sort((a, b) => new Date(a.workDate) - new Date(b.workDate)); // Sort by work date
+});
+
 // Methods
 async function loadExtraWorkDays() {
   try {
     loading.value = true;
     const response = await MedicService.getExtraWorkDays();
     console.log('Extra work days response:', response); // Debug log
-    extraWorkDays.value = response.data || []; // Ensure it's always an array
+    extraWorkDays.value = response || []; // response is already the data array
   } catch (error) {
     console.error('Error loading extra work days:', error);
     toast.error('Failed to load extra work days');
@@ -291,6 +412,16 @@ function isPastExtraWork(extraWork) {
 function isCurrentExtraWork(extraWork) {
   const today = new Date().toISOString().split('T')[0];
   return extraWork.workDate === today;
+}
+
+function formatApprovalDate(dateString) {
+  const options = { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    timeZone: 'Europe/Bucharest'
+  };
+  return new Date(dateString).toLocaleDateString('en-US', options);
 }
 
 // Lifecycle
@@ -532,6 +663,12 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
+.extra-work-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .extra-work-status {
   margin-top: 0.5rem;
 }
@@ -557,6 +694,41 @@ onMounted(() => {
 .status-badge.future {
   background-color: #007bff;
   color: white;
+}
+
+.approval-status {
+  margin-top: 0.5rem;
+}
+
+.approval-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.approval-badge.pending {
+  background-color: #ffc107;
+  color: white;
+}
+
+.approval-badge.approved {
+  background-color: #28a745;
+  color: white;
+}
+
+.approval-badge.rejected {
+  background-color: #dc3545;
+  color: white;
+}
+
+.rejection-reason {
+  color: #dc3545;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .extra-work-actions {
@@ -622,6 +794,14 @@ onMounted(() => {
   background-color: #c82333;
 }
 
+.approved-notice {
+  color: #28a745;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
@@ -639,5 +819,53 @@ onMounted(() => {
   .work-time {
     margin-left: 0;
   }
+}
+
+.section-description {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+/* Planned Extra Work Section */
+.planned-extra-work-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f8e8 100%);
+  border-radius: 12px;
+  border: 2px solid #28a745;
+}
+
+.planned-extra-work-section h3 {
+  color: #1e7e34;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.planned-list .extra-work-item.planned-extra-work {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #28a745;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.15);
+}
+
+.planned-list .extra-work-item.planned-extra-work:hover {
+  border-color: #1e7e34;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
+}
+
+.planned-list .extra-work-item.current-extra-work {
+  border-color: #ffc107;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffffff 100%);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 2px 8px rgba(255, 193, 7, 0.15); }
+  50% { box-shadow: 0 4px 16px rgba(255, 193, 7, 0.35); }
+  100% { box-shadow: 0 2px 8px rgba(255, 193, 7, 0.15); }
 }
 </style> 

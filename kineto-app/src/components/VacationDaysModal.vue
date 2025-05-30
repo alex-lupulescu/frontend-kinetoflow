@@ -64,6 +64,66 @@
           </form>
         </div>
 
+        <!-- Planned Vacation Days (Approved & Future/Current) -->
+        <div v-if="plannedVacations.length > 0" class="planned-vacations-section">
+          <h3><i class="fas fa-calendar-check"></i> Planned Vacation Days</h3>
+          <p class="section-description">Your approved and pending vacation days that are current or upcoming.</p>
+          <div class="vacation-list planned-list">
+            <div
+              v-for="vacation in plannedVacations"
+              :key="`planned-${vacation.id}`"
+              class="vacation-item planned-vacation"
+              :class="{ 'current-vacation': isCurrentVacation(vacation) }"
+            >
+              <div class="vacation-info">
+                <div class="vacation-dates">
+                  <i class="fas fa-calendar-alt"></i>
+                  {{ formatDate(vacation.startDate) }} 
+                  <span v-if="vacation.startDate !== vacation.endDate">
+                    - {{ formatDate(vacation.endDate) }}
+                  </span>
+                  <span class="vacation-duration">
+                    ({{ calculateDuration(vacation.startDate, vacation.endDate) }} 
+                    {{ calculateDuration(vacation.startDate, vacation.endDate) === 1 ? 'day' : 'days' }})
+                  </span>
+                </div>
+                <div v-if="vacation.reason" class="vacation-reason">
+                  <i class="fas fa-comment"></i> {{ vacation.reason }}
+                </div>
+                <div class="vacation-status-row">
+                  <div class="vacation-status">
+                    <span v-if="isCurrentVacation(vacation)" class="status-badge current">
+                      <i class="fas fa-play-circle"></i> In Progress
+                    </span>
+                    <span v-else class="status-badge future">
+                      <i class="fas fa-calendar-plus"></i> Upcoming
+                    </span>
+                  </div>
+                  <div class="approval-status">
+                    <span 
+                      v-if="vacation.approvalStatus === 'APPROVED'" 
+                      class="approval-badge approved"
+                    >
+                      <i class="fas fa-check"></i> Approved
+                    </span>
+                    <span 
+                      v-else-if="vacation.approvalStatus === 'PENDING'" 
+                      class="approval-badge pending"
+                    >
+                      <i class="fas fa-clock"></i> Pending Approval
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="vacation-actions">
+                <span class="approved-notice">
+                  <i class="fas fa-shield-alt"></i> Protected - Cannot be deleted
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Existing Vacation Days -->
         <div class="existing-vacations-section">
           <h3>Existing Vacation Periods</h3>
@@ -92,22 +152,54 @@
                 <div v-if="vacation.reason" class="vacation-reason">
                   <i class="fas fa-comment"></i> {{ vacation.reason }}
                 </div>
-                <div class="vacation-status">
-                  <span v-if="isPastVacation(vacation)" class="status-badge past">Past</span>
-                  <span v-else-if="isCurrentVacation(vacation)" class="status-badge current">Current</span>
-                  <span v-else class="status-badge future">Upcoming</span>
+                <div class="vacation-status-row">
+                  <div class="vacation-status">
+                    <span v-if="isPastVacation(vacation)" class="status-badge past">Past</span>
+                    <span v-else-if="isCurrentVacation(vacation)" class="status-badge current">Current</span>
+                    <span v-else class="status-badge future">Upcoming</span>
+                  </div>
+                  <div class="approval-status">
+                    <span 
+                      v-if="vacation.approvalStatus === 'PENDING'" 
+                      class="approval-badge pending"
+                      title="Pending approval"
+                    >
+                      <i class="fas fa-clock"></i> Pending
+                    </span>
+                    <span 
+                      v-else-if="vacation.approvalStatus === 'APPROVED'" 
+                      class="approval-badge approved"
+                      :title="`Approved by ${vacation.approvedByName || 'Admin'} on ${formatApprovalDate(vacation.approvalDate)}`"
+                    >
+                      <i class="fas fa-check"></i> Approved
+                    </span>
+                    <span 
+                      v-else-if="vacation.approvalStatus === 'REJECTED'" 
+                      class="approval-badge rejected"
+                      :title="`Rejected by ${vacation.approvedByName || 'Admin'} on ${formatApprovalDate(vacation.approvalDate)}${vacation.rejectionReason ? ': ' + vacation.rejectionReason : ''}`"
+                    >
+                      <i class="fas fa-times"></i> Rejected
+                    </span>
+                  </div>
+                </div>
+                <div v-if="vacation.approvalStatus === 'REJECTED' && vacation.rejectionReason" class="rejection-reason">
+                  <i class="fas fa-exclamation-triangle"></i> 
+                  <strong>Rejection Reason:</strong> {{ vacation.rejectionReason }}
                 </div>
               </div>
               <div class="vacation-actions">
                 <button
-                  v-if="!isPastVacation(vacation)"
+                  v-if="vacation.approvalStatus === 'PENDING'"
                   @click="deleteVacationPeriod(vacation.id)"
                   class="btn btn-sm btn-danger"
                   :disabled="isProcessing"
                   title="Delete vacation period"
                 >
-                  <i class="fas fa-trash"></i>
+                  <i class="fas fa-trash"></i> Delete
                 </button>
+                <span v-else-if="vacation.approvalStatus === 'APPROVED'" class="approved-notice">
+                  <i class="fas fa-shield-alt"></i> Protected - Cannot be deleted
+                </span>
               </div>
             </div>
           </div>
@@ -144,13 +236,31 @@ const today = computed(() => {
   return new Date().toISOString().split('T')[0];
 });
 
+// Computed property for planned vacations (approved and pending future/current)
+const plannedVacations = computed(() => {
+  if (!vacationDays.value) return [];
+  
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+  
+  return vacationDays.value.filter(vacation => {
+    // Only approved or pending vacations (exclude rejected)
+    if (vacation.approvalStatus === 'REJECTED') return false;
+    
+    // Only current or future vacations (not past)
+    const endDate = new Date(vacation.endDate);
+    endDate.setHours(23, 59, 59, 999); // Set to end of day for comparison
+    
+    return endDate >= currentDate;
+  }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate)); // Sort by start date
+});
+
 // Methods
 async function loadVacationDays() {
   try {
     loading.value = true;
     const response = await MedicService.getVacationDays();
-    console.log('Vacation days response:', response); // Debug log
-    vacationDays.value = response.data || []; // Ensure it's always an array
+    vacationDays.value = response || []; // response is already the data array
   } catch (error) {
     console.error('Error loading vacation days:', error);
     toast.error('Failed to load vacation days');
@@ -234,6 +344,16 @@ function isCurrentVacation(vacation) {
   const startDate = new Date(vacation.startDate);
   const endDate = new Date(vacation.endDate);
   return startDate <= today && today <= endDate;
+}
+
+function formatApprovalDate(dateString) {
+  const options = { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    timeZone: 'Europe/Bucharest'
+  };
+  return new Date(dateString).toLocaleDateString('en-US', options);
 }
 
 // Lifecycle
@@ -437,6 +557,12 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
+.vacation-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .vacation-status {
   margin-top: 0.5rem;
 }
@@ -462,6 +588,41 @@ onMounted(() => {
 .status-badge.future {
   background-color: #007bff;
   color: white;
+}
+
+.approval-status {
+  margin-top: 0.5rem;
+}
+
+.approval-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.approval-badge.pending {
+  background-color: #007bff;
+  color: white;
+}
+
+.approval-badge.approved {
+  background-color: #28a745;
+  color: white;
+}
+
+.approval-badge.rejected {
+  background-color: #dc3545;
+  color: white;
+}
+
+.rejection-reason {
+  color: #dc3545;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .vacation-actions {
@@ -527,6 +688,14 @@ onMounted(() => {
   background-color: #c82333;
 }
 
+.approved-notice {
+  color: #28a745;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
@@ -540,5 +709,53 @@ onMounted(() => {
   .vacation-actions {
     align-self: flex-end;
   }
+}
+
+.section-description {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+/* Planned Vacations Section */
+.planned-vacations-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border-radius: 12px;
+  border: 2px solid #2196f3;
+}
+
+.planned-vacations-section h3 {
+  color: #1976d2;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.planned-list .vacation-item.planned-vacation {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #28a745;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.15);
+}
+
+.planned-list .vacation-item.planned-vacation:hover {
+  border-color: #1e7e34;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
+}
+
+.planned-list .vacation-item.current-vacation {
+  border-color: #ffc107;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffffff 100%);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 2px 8px rgba(255, 193, 7, 0.15); }
+  50% { box-shadow: 0 4px 16px rgba(255, 193, 7, 0.35); }
+  100% { box-shadow: 0 2px 8px rgba(255, 193, 7, 0.15); }
 }
 </style> 

@@ -83,7 +83,6 @@
           <i class="fas fa-edit"></i> Edit
         </button>
         <button
-          type="button"
           v-if="selectedInfo.event.extendedProps?.type === 'block'"
           class="btn btn-sm btn-success"
           @click.stop="actionMarkAvailable"
@@ -95,7 +94,6 @@
           <span v-else><i class="fas fa-check-circle"></i> Mark Available</span>
         </button>
         <button
-          type="button"
           v-if="selectedInfo.event.extendedProps?.type === 'appointment' && selectedInfo.event.extendedProps?.status === 'SCHEDULED'"
           class="btn btn-sm btn-danger"
           @click.stop="actionCancelAppointment"
@@ -440,7 +438,46 @@ function handleDatesSet(dateInfo) { console.log("View/Dates Changed:", dateInfo.
 function handleDateSelect(selectionInfo) { if (selectedInfo.value?.event) selectedInfo.value = null; selectedInfo.value = { start: selectionInfo.start, end: selectionInfo.end, jsEvent: selectionInfo.jsEvent }; positionContextMenu(selectionInfo.jsEvent); }
 function handleUnselect() { console.log("Unselect Callback Triggered"); if (contextMenuStyle.display === 'block' && !selectedInfo.value && !showBlockModal.value && !showAppointmentModal.value && !showCancelModal.value) { contextMenuStyle.display = 'none'; } }
 function handleEventClick(clickInfo) { if (fullCalendar.value) fullCalendar.value.getApi().unselect(); selectedInfo.value = { event: clickInfo.event, jsEvent: clickInfo.jsEvent }; positionContextMenu(clickInfo.jsEvent); }
-function handleEventMount(info) { if (info.event.extendedProps.notes) { info.el.setAttribute("title", `Notes: ${info.event.extendedProps.notes}`); } if(info.event.extendedProps.type === 'block') { info.el.classList.add('fc-event-block'); } else if (info.event.extendedProps.type === 'appointment') { info.el.classList.add('fc-event-appointment'); if(info.event.extendedProps.status) { info.el.classList.add(`fc-event-status-${info.event.extendedProps.status.toLowerCase()}`); } } }
+function handleEventMount(info) { 
+  // Add tooltip with notes if available
+  if (info.event.extendedProps.notes) { 
+    info.el.setAttribute("title", `Notes: ${info.event.extendedProps.notes}`); 
+  } 
+  
+  // Add classes based on event type
+  const eventType = info.event.extendedProps.type;
+  
+  if(eventType === 'block') { 
+    info.el.classList.add('fc-event-block'); 
+  } else if (eventType === 'appointment') { 
+    info.el.classList.add('fc-event-appointment'); 
+    if(info.event.extendedProps.status) { 
+      info.el.classList.add(`fc-event-status-${info.event.extendedProps.status.toLowerCase()}`); 
+    } 
+  } else if (eventType === 'vacation') {
+    info.el.classList.add('fc-event-vacation');
+    info.el.setAttribute('data-type', 'vacation');
+    if(info.event.extendedProps.status) {
+      info.el.classList.add(`fc-event-status-${info.event.extendedProps.status.toLowerCase()}`);
+      // Add status indicator to title
+      const statusText = info.event.extendedProps.status === 'PENDING' ? ' (Pending Approval)' : '';
+      if (statusText && !info.el.getAttribute("title")) {
+        info.el.setAttribute("title", `Vacation Day${statusText}`);
+      }
+    }
+  } else if (eventType === 'extrawork') {
+    info.el.classList.add('fc-event-extrawork');
+    info.el.setAttribute('data-type', 'extrawork');
+    if(info.event.extendedProps.status) {
+      info.el.classList.add(`fc-event-status-${info.event.extendedProps.status.toLowerCase()}`);
+      // Add status indicator to title
+      const statusText = info.event.extendedProps.status === 'PENDING' ? ' (Pending Approval)' : '';
+      if (statusText && !info.el.getAttribute("title")) {
+        info.el.setAttribute("title", `Extra Work Day${statusText}`);
+      }
+    }
+  }
+}
 function handleRetryFetch() { if (fullCalendar.value) { fullCalendar.value.getApi().refetchEvents(); } }
 
 // --- Action Menu & Modal Logic ---
@@ -678,7 +715,45 @@ function handleExtraWorkDaysSaved() {
     :deep(.fc-event-appointment.fc-event-status-cancelled_by_medic), :deep(.fc-event-appointment.fc-event-status-cancelled_by_patient) { background-color: #f8d7da !important; border-color: #f1aeB5 !important; color: #842029 !important; text-decoration: line-through; }
     :deep(.fc-event-appointment.fc-event-status-no_show) { background-color: #fff3cd !important; border-color: #ffe69c !important; color: #664d03 !important; }
     :deep(.fc-event-appointment) { background-color: #cfe2ff !important; border-color: #a9c7fe !important; color: #052c65 !important; }
+    
+    /* Vacation Events */
+    :deep(.fc-event[data-type="vacation"]) { 
+      border-radius: 6px !important; 
+      font-weight: 600 !important;
+    }
+    
+    :deep(.fc-event-vacation.fc-event-status-pending) {
+      background-color: #fff3cd !important;
+      border-color: #ffc107 !important;
+      color: #856404 !important;
+    }
+    
+    :deep(.fc-event-vacation.fc-event-status-approved) {
+      background-color: #f8d7da !important;
+      border-color: #dc3545 !important;
+      color: #721c24 !important;
+    }
+    
+    /* Extra Work Events */
+    :deep(.fc-event[data-type="extrawork"]) { 
+      border-radius: 6px !important; 
+      font-weight: 600 !important;
+    }
+    
+    :deep(.fc-event-extrawork.fc-event-status-pending) {
+      background-color: #d1ecf1 !important;
+      border-color: #17a2b8 !important;
+      color: #0c5460 !important;
+    }
+    
+    :deep(.fc-event-extrawork.fc-event-status-approved) {
+      background-color: #d1e7dd !important;
+      border-color: #28a745 !important;
+      color: #155724 !important;
+    }
+    
     :deep(.fc-event:hover) { opacity: 0.85; }
+
     .fa-spinner { animation: fa-spin 1.5s linear infinite; }
     @keyframes fa-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 

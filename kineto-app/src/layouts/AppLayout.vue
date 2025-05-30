@@ -77,6 +77,12 @@
               </router-link>
             </li>
             <li>
+              <router-link to="/app/company/approvals" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                <i class="fas fa-tasks nav-icon" title="Approvals"></i>
+                <span v-if="!isSidebarCollapsed">Approvals</span>
+              </router-link>
+            </li>
+            <li>
                <router-link to="/app/company/profile" class="nav-link" active-class="active" @click="closeMobileSidebar">
                  <i class="fas fa-clinic-medical nav-icon"></i>
                  <span v-if="!isSidebarCollapsed">Company Profile</span>
