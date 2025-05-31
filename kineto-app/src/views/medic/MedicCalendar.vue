@@ -22,6 +22,14 @@
         <i class="fas fa-spinner fa-spin"></i> Loading Schedule...
       </div>
     </div>
+    
+    <!-- Dragging Indicator Overlay -->
+    <div v-if="isDragging" class="dragging-overlay">
+      <div class="dragging-indicator">
+        <i class="fas fa-arrows-alt fa-spin"></i> Moving Event...
+      </div>
+    </div>
+
     <div v-if="loadError && !isLoading" class="error-message full-page-error">
       <i class="fas fa-exclamation-triangle"></i> {{ loadError }}
       <button
@@ -267,6 +275,9 @@ const loadError = ref("");
 const selectedInfo = ref(null);
 const contextMenuStyle = reactive({ display: "none", left: "0px", top: "0px" });
 const isProcessingAction = ref(false);
+// Drag and Drop State
+const isDragging = ref(false);
+const dragError = ref("");
 // Block Modal State
 const showBlockModal = ref(false);
 const blockReason = ref("");
@@ -303,7 +314,7 @@ const calendarOptions = reactive({
     list: "List",
   },
   navLinks: true,
-  editable: false,
+  editable: true,
   selectable: true,
   selectMirror: true,
   nowIndicator: true,
@@ -326,6 +337,10 @@ const calendarOptions = reactive({
   unselect: handleUnselect,
   eventClick: handleEventClick,
   eventDidMount: handleEventMount,
+  eventDrop: handleEventDrop,
+  eventResize: handleEventResize,
+  eventDragStart: handleEventDragStart,
+  eventDragStop: handleEventDragStop,
   eventSources: [{ id: "medicEvents", events: fetchCalendarEvents }],
   eventColor: "#3498DB",
   businessHours: computed(() => medicBusinessHours.value) // Use a computed ref for reactivity
@@ -401,6 +416,10 @@ async function fetchCalendarEvents(fetchInfo, successCallback, failureCallback) 
       color: event.color,
       backgroundColor: event.color,
       borderColor: event.color ? darkenColor(event.color, 15) : "#2980B9",
+      // Drag and drop configuration
+      editable: isEventEditable(event),
+      startEditable: isEventEditable(event),
+      durationEditable: isEventResizable(event),
       extendedProps: {
         type: event.type,
         status: event.status,
@@ -431,6 +450,49 @@ function darkenColor(hex, percent) {
   // This is a placeholder. Replace with your actual color darkening logic.
   // console.warn("darkenColor placeholder in use");
   return hex; 
+}
+
+// --- Drag and Drop Helper Functions ---
+function isEventEditable(event) {
+  const eventType = event.type;
+  const eventStatus = event.status;
+  
+  // Allow dragging for:
+  // 1. Time blocks
+  // 2. Scheduled appointments
+  // 3. Pending vacation/extra work days
+  switch (eventType) {
+    case 'block':
+      return true;
+    case 'appointment':
+      return eventStatus === 'SCHEDULED';
+    case 'vacation':
+    case 'extrawork':
+      return eventStatus === 'PENDING';
+    case 'holiday':
+    default:
+      return false;
+  }
+}
+
+function isEventResizable(event) {
+  const eventType = event.type;
+  const eventStatus = event.status;
+  
+  // Allow resizing for:
+  // 1. Time blocks
+  // 2. Scheduled appointments (with caution)
+  switch (eventType) {
+    case 'block':
+      return true;
+    case 'appointment':
+      return eventStatus === 'SCHEDULED';
+    case 'vacation':
+    case 'extrawork':
+    case 'holiday':
+    default:
+      return false;
+  }
 }
 
 // --- Calendar Callbacks ---
@@ -485,6 +547,220 @@ function handleEventMount(info) {
   }
 }
 function handleRetryFetch() { if (fullCalendar.value) { fullCalendar.value.getApi().refetchEvents(); } }
+
+// --- Drag and Drop Event Handlers ---
+function handleEventDragStart(info) {
+  isDragging.value = true;
+  dragError.value = "";
+  clearSelection(); // Clear any existing selection when starting to drag
+}
+
+function handleEventDragStop(info) {
+  isDragging.value = false;
+}
+
+async function handleEventDrop(info) {
+  const event = info.event;
+  const delta = info.delta;
+  const revert = info.revert;
+  
+  // Clear any drag error from previous operations
+  dragError.value = "";
+  
+  try {
+    const eventType = event.extendedProps?.type;
+    const eventStatus = event.extendedProps?.status;
+    
+    // Validate the drop operation
+    if (!isEventEditable({ type: eventType, status: eventStatus })) {
+      revert();
+      toast.error("This event cannot be moved.");
+      return;
+    }
+    
+    // Show loading state
+    isDragging.value = true;
+    
+    // Handle different event types
+    switch (eventType) {
+      case 'appointment':
+        await handleAppointmentDrop(event, info);
+        break;
+      case 'block':
+        await handleTimeBlockDrop(event, info);
+        break;
+      case 'vacation':
+        await handleVacationDayDrop(event, info);
+        break;
+      case 'extrawork':
+        await handleExtraWorkDayDrop(event, info);
+        break;
+      default:
+        revert();
+        toast.error("This event type cannot be moved.");
+        return;
+    }
+    
+    toast.success("Event moved successfully.");
+    
+  } catch (error) {
+    console.error("Failed to move event:", error);
+    revert();
+    const errorMessage = error.response?.data?.message || "Failed to move event. Please try again.";
+    toast.error(errorMessage);
+    dragError.value = errorMessage;
+  } finally {
+    isDragging.value = false;
+  }
+}
+
+async function handleEventResize(info) {
+  const event = info.event;
+  const revert = info.revert;
+  
+  // Clear any drag error from previous operations
+  dragError.value = "";
+  
+  try {
+    const eventType = event.extendedProps?.type;
+    const eventStatus = event.extendedProps?.status;
+    
+    // Validate the resize operation
+    if (!isEventResizable({ type: eventType, status: eventStatus })) {
+      revert();
+      toast.error("This event cannot be resized.");
+      return;
+    }
+    
+    // Show loading state
+    isDragging.value = true;
+    
+    // Handle different event types
+    switch (eventType) {
+      case 'appointment':
+        await handleAppointmentResize(event, info);
+        break;
+      case 'block':
+        await handleTimeBlockResize(event, info);
+        break;
+      default:
+        revert();
+        toast.error("This event type cannot be resized.");
+        return;
+    }
+    
+    toast.success("Event resized successfully.");
+    
+  } catch (error) {
+    console.error("Failed to resize event:", error);
+    revert();
+    const errorMessage = error.response?.data?.message || "Failed to resize event. Please try again.";
+    toast.error(errorMessage);
+    dragError.value = errorMessage;
+  } finally {
+    isDragging.value = false;
+  }
+}
+
+// Specific event type handlers
+async function handleAppointmentDrop(event, info) {
+  const appointmentIdStr = event.id.startsWith('appt-') ? event.id.substring(5) : event.id;
+  const appointmentId = parseInt(appointmentIdStr, 10);
+  
+  if (!appointmentId || isNaN(appointmentId)) {
+    throw new Error("Invalid appointment ID");
+  }
+  
+  const updateData = {
+    startTime: event.start.toISOString(),
+    endTime: event.end.toISOString()
+  };
+  
+  await MedicService.updateAppointmentTime(appointmentId, updateData);
+}
+
+async function handleAppointmentResize(event, info) {
+  const appointmentIdStr = event.id.startsWith('appt-') ? event.id.substring(5) : event.id;
+  const appointmentId = parseInt(appointmentIdStr, 10);
+  
+  if (!appointmentId || isNaN(appointmentId)) {
+    throw new Error("Invalid appointment ID");
+  }
+  
+  const updateData = {
+    startTime: event.start.toISOString(),
+    endTime: event.end.toISOString()
+  };
+  
+  await MedicService.updateAppointmentTime(appointmentId, updateData);
+}
+
+async function handleTimeBlockDrop(event, info) {
+  const blockIdStr = event.id.startsWith('block-') ? event.id.substring(6) : event.id;
+  const blockId = parseInt(blockIdStr, 10);
+  
+  if (!blockId || isNaN(blockId)) {
+    throw new Error("Invalid block ID");
+  }
+  
+  const updateData = {
+    startTime: event.start.toISOString(),
+    endTime: event.end.toISOString(),
+    reason: event.title || "Blocked"
+  };
+  
+  await MedicService.updateTimeBlock(blockId, updateData);
+}
+
+async function handleTimeBlockResize(event, info) {
+  const blockIdStr = event.id.startsWith('block-') ? event.id.substring(6) : event.id;
+  const blockId = parseInt(blockIdStr, 10);
+  
+  if (!blockId || isNaN(blockId)) {
+    throw new Error("Invalid block ID");
+  }
+  
+  const updateData = {
+    startTime: event.start.toISOString(),
+    endTime: event.end.toISOString(),
+    reason: event.title || "Blocked"
+  };
+  
+  await MedicService.updateTimeBlock(blockId, updateData);
+}
+
+async function handleVacationDayDrop(event, info) {
+  const vacationIdStr = event.id.startsWith('vacation-') ? event.id.substring(9) : event.id;
+  const vacationId = parseInt(vacationIdStr, 10);
+  
+  if (!vacationId || isNaN(vacationId)) {
+    throw new Error("Invalid vacation day ID");
+  }
+  
+  const updateData = {
+    startDate: event.start.toISOString().split('T')[0], // Get just the date part
+    endDate: event.end ? event.end.toISOString().split('T')[0] : event.start.toISOString().split('T')[0]
+  };
+  
+  await MedicService.updateVacationDay(vacationId, updateData);
+}
+
+async function handleExtraWorkDayDrop(event, info) {
+  const extraWorkIdStr = event.id.startsWith('extrawork-') ? event.id.substring(10) : event.id;
+  const extraWorkId = parseInt(extraWorkIdStr, 10);
+  
+  if (!extraWorkId || isNaN(extraWorkId)) {
+    throw new Error("Invalid extra work day ID");
+  }
+  
+  const updateData = {
+    date: event.start.toISOString().split('T')[0], // Get just the date part
+    startTime: event.start.toISOString(),
+    endTime: event.end.toISOString()
+  };
+  
+  await MedicService.updateExtraWorkDay(extraWorkId, updateData);
+}
 
 // --- Action Menu & Modal Logic ---
 function positionContextMenu(jsEvent) { nextTick(() => { const menu = document.querySelector(".context-menu"); if (!menu) return; const clickX = jsEvent.clientX; const clickY = jsEvent.clientY; let top = clickY + 5; let left = clickX + 5; const menuRect = menu.getBoundingClientRect(); const windowHeight = window.innerHeight; const windowWidth = window.innerWidth; if (top + menuRect.height > windowHeight) top = clickY - menuRect.height - 5; if (left + menuRect.width > windowWidth) left = clickX - menuRect.width - 5; contextMenuStyle.left = `${Math.max(5, left)}px`; contextMenuStyle.top = `${Math.max(5, top)}px`; contextMenuStyle.display = "block"; }); }
@@ -689,6 +965,9 @@ function handleExtraWorkDaysSaved() {
     .loading-overlay { position: absolute; inset: 0; background-color: rgba(255, 255, 255, 0.7); display: flex; justify-content: center; align-items: center; z-index: 10; border-radius: var(--border-radius-large); }
     .loading-indicator { text-align: center; padding: 3rem 1rem; color: var(--text-color); font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 0.8rem; }
     .loading-indicator i { font-size: 1.5rem; animation: fa-spin 1.5s linear infinite; color: var(--primary-color-start);}
+    .dragging-overlay { position: absolute; inset: 0; background-color: rgba(52, 152, 219, 0.1); display: flex; justify-content: center; align-items: center; z-index: 15; border-radius: var(--border-radius-large); pointer-events: none; }
+    .dragging-indicator { text-align: center; padding: 2rem 1rem; color: var(--primary-color-start); font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 0.8rem; font-weight: 600; background-color: rgba(255, 255, 255, 0.9); border-radius: var(--border-radius); box-shadow: var(--shadow-light); padding: 1rem 2rem; }
+    .dragging-indicator i { font-size: 1.3rem; animation: fa-spin 2s linear infinite; color: var(--primary-color-start); }
     .error-message.full-page-error { margin: 2rem auto; padding: 1.5rem; text-align: center; max-width: 600px; }
     .retry-button { margin-left: 1rem;}
     .calendar-component { min-height: 75vh; background-color: #fff; padding: 1rem; border-radius: var(--border-radius-large); box-shadow: var(--shadow-light); opacity: 1; transition: opacity 0.3s ease; }
@@ -776,6 +1055,20 @@ function handleExtraWorkDaysSaved() {
     }
     
     :deep(.fc-event:hover) { opacity: 0.85; }
+
+    /* Drag and Drop Styles */
+    :deep(.fc-event.fc-event-draggable) { cursor: move; transition: all 0.2s ease; }
+    :deep(.fc-event.fc-event-draggable:hover) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); opacity: 0.9; }
+    :deep(.fc-event.fc-event-resizable) { cursor: ew-resize; }
+    :deep(.fc-event.fc-event-dragging) { opacity: 0.7; transform: scale(0.95); }
+    :deep(.fc-event.fc-event-mirror) { opacity: 0.8; z-index: 999; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
+    
+    /* Resize handle styles */
+    :deep(.fc-event .fc-event-resizer) { background-color: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.2); }
+    :deep(.fc-event:hover .fc-event-resizer) { background-color: rgba(255,255,255,1); }
+    
+    /* Non-draggable events should show default cursor */
+    :deep(.fc-event:not(.fc-event-draggable)) { cursor: pointer; }
 
     .fa-spinner { animation: fa-spin 1.5s linear infinite; }
     @keyframes fa-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

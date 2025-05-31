@@ -64,6 +64,60 @@ const MedicService = {
         return apiClient.delete(`/medic/appointments/${appointmentId}`);
     },
 
+    // --- Drag and Drop Update Methods ---
+
+    /**
+     * Update appointment time (for drag and drop)
+     */
+    async updateAppointmentTime(appointmentId, timeData) {
+        try {
+            const response = await apiClient.patch(`/medic/appointments/${appointmentId}/time`, timeData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating appointment time:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Update time block (for drag and drop)
+     */
+    async updateTimeBlock(timeBlockId, blockData) {
+        try {
+            const response = await apiClient.patch(`/medic/time-blocks/${timeBlockId}`, blockData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating time block:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Update vacation day (for drag and drop)
+     */
+    async updateVacationDay(vacationId, vacationData) {
+        try {
+            const response = await apiClient.patch(`/medic/vacation-days/${vacationId}`, vacationData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating vacation day:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Update extra work day (for drag and drop)
+     */
+    async updateExtraWorkDay(extraWorkId, extraWorkData) {
+        try {
+            const response = await apiClient.patch(`/medic/extra-work-days/${extraWorkId}`, extraWorkData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating extra work day:', error);
+            throw error;
+        }
+    },
+
     // --- Medic Working Hours ---
     getMyWorkingHours() {
         return apiClient.get('/medic/working-hours');
