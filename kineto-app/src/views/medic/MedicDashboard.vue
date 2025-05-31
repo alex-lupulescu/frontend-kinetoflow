@@ -196,6 +196,11 @@
       @close="closeAppointmentDetails"
       @edit="handleEditAppointment"
     />
+
+    <!-- Upcoming Holidays -->
+    <div class="holidays-section">
+      <UpcomingHolidays :max-display="4" />
+    </div>
     </div>
   </template>
   
@@ -206,6 +211,7 @@ import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import MedicService from '@/services/MedicService';
 import AppointmentDetailsModal from '@/components/AppointmentDetailsModal.vue';
+import UpcomingHolidays from '@/components/UpcomingHolidays.vue';
 
 const router = useRouter();
   const authStore = useAuthStore();
@@ -915,6 +921,15 @@ onMounted(() => {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
+}
+
+/* Holidays Section */
+.holidays-section {
+  margin-top: 2rem;
+  grid-column: 1 / -1; /* Span across all grid columns */
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Animations */

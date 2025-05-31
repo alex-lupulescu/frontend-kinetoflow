@@ -83,6 +83,12 @@
               </router-link>
             </li>
             <li>
+              <router-link to="/app/company/holidays" class="nav-link" active-class="active" @click="closeMobileSidebar">
+                <i class="fas fa-calendar-alt nav-icon" title="Holidays"></i>
+                <span v-if="!isSidebarCollapsed">Holidays</span>
+              </router-link>
+            </li>
+            <li>
                <router-link to="/app/company/profile" class="nav-link" active-class="active" @click="closeMobileSidebar">
                  <i class="fas fa-clinic-medical nav-icon"></i>
                  <span v-if="!isSidebarCollapsed">Company Profile</span>

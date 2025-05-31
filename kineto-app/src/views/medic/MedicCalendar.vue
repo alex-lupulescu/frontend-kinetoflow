@@ -476,6 +476,12 @@ function handleEventMount(info) {
         info.el.setAttribute("title", `Extra Work Day${statusText}`);
       }
     }
+  } else if (eventType === 'holiday') {
+    info.el.classList.add('fc-event-holiday');
+    info.el.setAttribute('data-type', 'holiday');
+    if (!info.el.getAttribute("title")) {
+      info.el.setAttribute("title", `Company Holiday: ${info.event.title}`);
+    }
   }
 }
 function handleRetryFetch() { if (fullCalendar.value) { fullCalendar.value.getApi().refetchEvents(); } }
@@ -750,6 +756,23 @@ function handleExtraWorkDaysSaved() {
       background-color: #d1e7dd !important;
       border-color: #28a745 !important;
       color: #155724 !important;
+    }
+    
+    /* Holiday Events */
+    :deep(.fc-event[data-type="holiday"]) { 
+      border-radius: 6px !important; 
+      font-weight: 600 !important;
+      background-color: #6f42c1 !important;
+      border-color: #6f42c1 !important;
+      color: #ffffff !important;
+    }
+    
+    :deep(.fc-event-holiday) {
+      background-color: #6f42c1 !important;
+      border-color: #6f42c1 !important;
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      border-radius: 6px !important;
     }
     
     :deep(.fc-event:hover) { opacity: 0.85; }
