@@ -257,6 +257,14 @@
                             <span class="stat-number">{{ patientHistoryData.cancelledAppointments || 0 }}</span>
                             <span class="stat-label">Cancelled</span>
                         </div>
+                        <div class="stat-item no-show">
+                            <span class="stat-number">{{ patientHistoryData.noShowAppointments || 0 }}</span>
+                            <span class="stat-label">No-Shows</span>
+                        </div>
+                        <div v-if="patientHistoryData.noShowAppointmentsCurrentMonth > 0" class="stat-item no-show-month">
+                            <span class="stat-number">{{ patientHistoryData.noShowAppointmentsCurrentMonth || 0 }}</span>
+                            <span class="stat-label">No-Shows This Month</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -318,6 +326,16 @@
                                     <div class="stat-content">
                                         <span class="stat-number">{{ service.cancelledSessions || 0 }}</span>
                                         <span class="stat-label">Cancelled</span>
+                                    </div>
+                                </div>
+
+                                <div v-if="service.noShowSessions > 0" class="stat-card no-show">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-user-times"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <span class="stat-number">{{ service.noShowSessions || 0 }}</span>
+                                        <span class="stat-label">No-Shows</span>
                                     </div>
                                 </div>
                             </div>
@@ -401,7 +419,7 @@
                  <div class="form-group">
                     <label class="form-label">
                         <i class="fas fa-layer-group"></i> Assignment Type
-                    </label>
+                        </label>
                     <div class="assignment-buttons">
                         <button 
                             type="button" 
@@ -531,7 +549,7 @@
                            
                            <div class="quantity-input-group">
                                <input type="number" v-model.number="item.quantity" min="1" required placeholder="1" class="item-quantity form-control" :disabled="isAssigning">
-                           </div>
+                        </div>
                            <button type="button" @click="removeCustomItem(index)" class="btn btn-danger btn-sm btn-remove" title="Remove Item" :disabled="isAssigning"> 
                                <i class="fas fa-trash"></i> 
                            </button>
@@ -1066,7 +1084,7 @@ const handleEditPatientSave = async () => {
         };
 
         const response = await MedicService.updatePatientDetails(editPatientForm.id, updateData);
-        
+
         // Update the patient in the local list
         const patientIndex = allAssignedPatients.value.findIndex(p => p.id === editPatientForm.id);
         if (patientIndex !== -1) {
@@ -1241,7 +1259,7 @@ onMounted(async () => {
         cursor: not-allowed;
         opacity: 0.6;
     }
-    
+
     /* Responsive */
     @media (max-width: 768px) {
         .assignment-buttons {
@@ -1737,6 +1755,18 @@ onMounted(async () => {
         background: #fef2f2;
     }
 
+    .stat-item.no-show {
+        border-color: #f59e0b;
+        background: #fffbeb;
+    }
+
+    .stat-item.no-show-month {
+        border-color: #dc2626;
+        background: #fef2f2;
+        border-width: 2px;
+        font-weight: 600;
+    }
+
     .stat-number {
         display: block;
         font-size: 2rem;
@@ -1946,6 +1976,11 @@ onMounted(async () => {
     .stat-card.cancelled .stat-icon {
         background: linear-gradient(135deg, #fee2e2, #fecaca);
         color: var(--danger-color);
+    }
+
+    .stat-card.no-show .stat-icon {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        color: #f59e0b;
     }
 
     .stat-content {

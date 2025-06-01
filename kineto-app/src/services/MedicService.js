@@ -53,9 +53,19 @@ const MedicService = {
     async markAppointmentCompleted(appointmentId) {
         try {
             const response = await apiClient.patch(`/medic/appointments/${appointmentId}/complete`);
-            return response.data;
+            return response;
         } catch (error) {
-            console.error('Error marking appointment completed:', error);
+            console.error('Error marking appointment as completed:', error);
+            throw error;
+        }
+    },
+
+    async markAppointmentNoShow(appointmentId) {
+        try {
+            const response = await apiClient.patch(`/medic/appointments/${appointmentId}/no-show`);
+            return response;
+        } catch (error) {
+            console.error('Error marking appointment as no-show:', error);
             throw error;
         }
     },

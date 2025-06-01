@@ -71,7 +71,8 @@
       <template v-if="selectedInfo.event">
         <button
           type="button"
-          v-if="selectedInfo.event.extendedProps?.type === 'appointment' && selectedInfo.event.extendedProps?.status === 'SCHEDULED'"
+          v-if="selectedInfo.event.extendedProps?.type === 'appointment' && 
+                (selectedInfo.event.extendedProps?.status === 'SCHEDULED' || selectedInfo.event.extendedProps?.status === 'NO_SHOW')"
           class="btn btn-sm btn-success"
           @click.stop="actionMarkCompleted"
           :disabled="isProcessingAction"
@@ -79,8 +80,29 @@
           <span v-if="isProcessingAction === 'markCompleted'"
             ><i class="fas fa-spinner fa-spin"></i
           ></span>
-          <span v-else><i class="fas fa-check-circle"></i> Mark Completed</span>
+          <span v-else>
+            <i class="fas fa-check-circle"></i> 
+            {{ selectedInfo.event.extendedProps?.status === 'NO_SHOW' ? 'Mark as Completed' : 'Mark Completed' }}
+          </span>
         </button>
+        
+        <button
+          type="button"
+          v-if="selectedInfo.event.extendedProps?.type === 'appointment' && 
+                (selectedInfo.event.extendedProps?.status === 'SCHEDULED' || selectedInfo.event.extendedProps?.status === 'COMPLETED')"
+          class="btn btn-sm btn-warning"
+          @click.stop="actionMarkNoShow"
+          :disabled="isProcessingAction"
+        >
+          <span v-if="isProcessingAction === 'markNoShow'"
+            ><i class="fas fa-spinner fa-spin"></i
+          ></span>
+          <span v-else>
+            <i class="fas fa-user-times"></i> 
+            {{ selectedInfo.event.extendedProps?.status === 'COMPLETED' ? 'Mark as No-Show' : 'Mark No-Show' }}
+          </span>
+        </button>
+        
         <button
           type="button"
           v-if="selectedInfo.event.extendedProps?.type === 'appointment' && selectedInfo.event.extendedProps?.status === 'SCHEDULED'"
@@ -894,7 +916,8 @@ function convertDayOfWeekToFCCalo(dayOfWeek) {
 
 async function actionMarkCompleted() {
   const eventInfo = selectedInfo.value?.event;
-  if (!eventInfo || eventInfo.extendedProps?.type !== 'appointment' || eventInfo.extendedProps?.status !== 'SCHEDULED') {
+  if (!eventInfo || eventInfo.extendedProps?.type !== 'appointment' || 
+      (eventInfo.extendedProps?.status !== 'SCHEDULED' && eventInfo.extendedProps?.status !== 'NO_SHOW')) {
     clearSelection();
     return;
   }
@@ -908,19 +931,56 @@ async function actionMarkCompleted() {
     return;
   }
   
-  if (!confirm(`Mark appointment "${eventInfo.title}" as completed? This will trigger a feedback request notification to the patient.`)) {
-    clearSelection();
-    return;
-  }
+  const currentStatus = eventInfo.extendedProps?.status;
+  const isNoShow = currentStatus === 'NO_SHOW';
   
   isProcessingAction.value = 'markCompleted';
   try {
     await MedicService.markAppointmentCompleted(appointmentId);
-    toast.success("Appointment marked as completed. Patient will be notified to leave feedback.");
+    const successMessage = isNoShow 
+      ? "Appointment status changed to completed. Attendance record updated."
+      : "Appointment marked as completed. Patient will be notified to leave feedback.";
+    toast.success(successMessage);
     clearSelection();
     fullCalendar.value?.getApi().refetchEvents();
   } catch (error) {
     toast.error(error.response?.data?.message || "Failed to mark appointment as completed.");
+  } finally {
+    isProcessingAction.value = false;
+  }
+}
+
+async function actionMarkNoShow() {
+  const eventInfo = selectedInfo.value?.event;
+  if (!eventInfo || eventInfo.extendedProps?.type !== 'appointment' || 
+      (eventInfo.extendedProps?.status !== 'SCHEDULED' && eventInfo.extendedProps?.status !== 'COMPLETED')) {
+    clearSelection();
+    return;
+  }
+  
+  const appointmentIdStr = eventInfo.id.startsWith('appt-') ? eventInfo.id.substring(5) : eventInfo.id;
+  const appointmentId = parseInt(appointmentIdStr, 10);
+  
+  if (!appointmentId || isNaN(appointmentId)) {
+    toast.error("Invalid appointment ID.");
+    clearSelection();
+    return;
+  }
+  
+  const currentStatus = eventInfo.extendedProps?.status;
+  const isCompleted = currentStatus === 'COMPLETED';
+  
+  isProcessingAction.value = 'markNoShow';
+  try {
+    await MedicService.markAppointmentNoShow(appointmentId);
+    const successMessage = isCompleted
+      ? "Appointment status changed to no-show. Attendance record updated."
+      : "Appointment marked as no-show. Attendance tracked.";
+    toast.success(successMessage);
+    clearSelection();
+    fullCalendar.value?.getApi().refetchEvents();
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Failed to mark appointment as no-show.");
   } finally {
     isProcessingAction.value = false;
   }
