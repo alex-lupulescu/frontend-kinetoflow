@@ -18,12 +18,25 @@
              <!-- Patient Selection -->
              <div class="form-group" v-if="!editingAppointment"> {/* Allow pre-filled patient, disable selection when editing for now */}
                 <label for="apptPatient" class="form-label">Patient *</label>
-                 <select id="apptPatient" v-model="editableAppointment.patientId" class="form-control" required :disabled="isLoadingPatients || isSubmitting">
-                     <option :value="null" disabled>-- Select Patient --</option>
-                     <option v-for="patient in availablePatients" :key="patient.id" :value="patient.id"> {{ patient.name }} (ID: {{ patient.id }}) </option>
-                 </select>
-                 <div v-if="isLoadingPatients" class="loading-inline small"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-                 <div v-if="!isLoadingPatients && availablePatients.length === 0" class="text-muted small mt-1">No active patients assigned.</div>
+                
+                <SearchableDropdown
+                  v-model="editableAppointment.patientId"
+                  :options="formattedPatientOptions"
+                  :disabled="isLoadingPatients || isSubmitting"
+                  :loading="isLoadingPatients"
+                  placeholder="Select a patient..."
+                  search-placeholder="Search patients..."
+                  loading-text="Loading patients..."
+                  no-options-text="No active patients assigned"
+                  icon="fas fa-user"
+                  label-key="name"
+                  value-key="id"
+                  subtext-key="contact"
+                  meta-key="status"
+                  :required="!editingAppointment"
+                  :error-message="!editingAppointment && !editableAppointment.patientId ? 'Please select a patient' : ''"
+                />
+                
              </div>
              <div v-else-if="editingAppointment && appointmentData" class="form-group">
                 <label class="form-label">Patient:</label>
@@ -35,17 +48,26 @@
              <!-- Service / Plan Item Selection -->
              <div class="form-group">
                 <label for="apptService" class="form-label">Service / Plan Item *</label>
-                <select id="apptService" v-model="selectedServiceOrPlanItem" class="form-control" required :disabled="isLoadingServices || isLoadingPatientPlans || isSubmitting || !editableAppointment.patientId">
-                    <option :value="null" disabled>-- Select Service or Plan Item --</option>
-                    <optgroup label="From Patient Plan (Remaining Sessions)" v-if="patientPlanItems.length > 0">
-                        <option v-for="item in patientPlanItems" :key="`planitem-${item.id}`" :value="{ type: 'planItem', id: item.id, serviceId: item.serviceId }"> {{ item.serviceName }} ({{ item.remainingQuantity }}/{{ item.totalQuantity }} left) </option>
-                    </optgroup>
-                     <optgroup label="Standard Company Services">
-                        <option v-for="service in availableServices" :key="`service-${service.id}`" :value="{ type: 'service', id: service.id, serviceId: service.id }"> {{ service.name }} ({{ service.durationMinutes }} min) {{ service.price ? ' - ' + formatCurrency(service.price) : ''}} </option>
-                        <option v-if="availableServices.length === 0" disabled>No active services found</option>
-                    </optgroup>
-                 </select>
-                <div v-if="isLoadingServices || isLoadingPatientPlans" class="loading-inline small"><i class="fas fa-spinner fa-spin"></i> Loading options...</div>
+                
+                <SearchableDropdown
+                  v-model="selectedServiceOrPlanItemId"
+                  :options="formattedServiceOptions"
+                  :disabled="isLoadingServices || isLoadingPatientPlans || isSubmitting || !editableAppointment.patientId"
+                  :loading="isLoadingServices || isLoadingPatientPlans"
+                  placeholder="Select service or plan item..."
+                  search-placeholder="Search services..."
+                  loading-text="Loading options..."
+                  no-options-text="No services available"
+                  icon="fas fa-tools"
+                  label-key="name"
+                  value-key="uniqueId"
+                  subtext-key="details"
+                  meta-key="price"
+                  icon-key="icon"
+                  :required="true"
+                  :error-message="!selectedServiceOrPlanItemId ? 'Please select a service' : ''"
+                />
+                
                 <div v-if="!editableAppointment.patientId && !editingAppointment" class="text-muted small mt-1"> Please select a patient first. </div>
              </div>
 
@@ -77,6 +99,7 @@ import { useToast } from 'vue-toastification';
 import UserService from '@/services/UserService';
 import MedicService from '@/services/MedicService';
 import PatientPlanService from '@/services/PatientPlanService';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 
 // --- Props and Emits ---
 const props = defineProps({
@@ -89,10 +112,10 @@ const toast = useToast();
 
 // --- State ---
 const editableAppointment = reactive({ patientId: null, serviceId: null, patientPlanServiceItemId: null, notes: '' });
-const selectedServiceOrPlanItem = ref(null);
+const selectedServiceOrPlanItemId = ref(null);
 const availablePatients = ref([]);
 const availableServices = ref([]);
-const patientPlanItems = ref([]);
+const patientPlansWithPayments = ref([]);
 const isLoadingPatients = ref(false);
 const isLoadingServices = ref(false);
 const isLoadingPatientPlans = ref(false);
@@ -101,7 +124,72 @@ const formError = ref('');
 
 // --- Computed ---
 const editingAppointment = computed(() => !!props.appointmentData);
-const isFormValid = computed(() => editableAppointment.patientId && selectedServiceOrPlanItem.value?.serviceId);
+const isFormValid = computed(() => editableAppointment.patientId && selectedServiceOrPlanItemId.value);
+
+// Computed properties for SearchableDropdown options
+const formattedPatientOptions = computed(() => {
+    return availablePatients.value.map(patient => ({
+        id: patient.id,
+        name: patient.name,
+        contact: patient.email || patient.phoneNumber || 'No contact info',
+        status: patient.isActive ? 'Active' : 'Inactive',
+        icon: 'fas fa-user'
+    }));
+});
+
+const formattedServiceOptions = computed(() => {
+    const options = [];
+    
+    // Add plan items first (from patient's plans with payment info)
+    patientPlansWithPayments.value.forEach(item => {
+        const paymentStatus = item.isPaid ? 'PAID' : 'UNPAID';
+        const paymentIcon = item.isPaid ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+        const paymentColor = item.isPaid ? '#28a745' : '#ffc107';
+        
+        options.push({
+            uniqueId: `planitem-${item.id}`,
+            name: `${item.serviceName} (Plan)`,
+            details: `${item.remainingQuantity}/${item.totalQuantity} sessions remaining`,
+            price: '', // Plan items typically don't show individual price
+            icon: paymentIcon,
+            type: 'planItem',
+            id: item.id,
+            serviceId: item.serviceId,
+            remainingQuantity: item.remainingQuantity,
+            totalQuantity: item.totalQuantity,
+            // Payment information
+            isPaid: item.isPaid,
+            paymentStatus: paymentStatus,
+            paymentStatusText: item.isPaid ? 'Paid' : 'Unpaid',
+            paymentIcon: paymentIcon,
+            paymentColor: paymentColor,
+            planPaymentStatus: item.planPaymentStatus,
+            dueAmount: item.dueAmount
+        });
+    });
+    
+    // Add standard services
+    availableServices.value.forEach(service => {
+        options.push({
+            uniqueId: `service-${service.id}`,
+            name: service.name,
+            details: `${service.durationMinutes} minutes`,
+            price: service.price ? formatCurrency(service.price) : '',
+            icon: 'fas fa-tools',
+            type: 'service',
+            id: service.id,
+            serviceId: service.id,
+            // Standard services are always "pay-per-session"
+            isPaid: false,
+            paymentStatus: 'PAY_PER_SESSION',
+            paymentStatusText: 'Pay per session',
+            paymentIcon: 'fas fa-credit-card',
+            paymentColor: '#6c757d'
+        });
+    });
+    
+    return options;
+});
 
 // --- Methods ---
 const closeModal = () => { emit('close'); };
@@ -130,11 +218,78 @@ const formatModalDateTimeRange = (start, end) => {
 
 const fetchPatients = async () => { isLoadingPatients.value = true; availablePatients.value = []; try { const r = await UserService.getAssignedPatients(); availablePatients.value = r.data; } catch(e) { toast.error("Failed to load patients."); } finally { isLoadingPatients.value = false; } };
 const fetchServices = async () => { isLoadingServices.value = true; availableServices.value = []; try { const r = await MedicService.getActiveCompanyServices(); availableServices.value = r.data; } catch(e) { toast.error("Failed to load services."); } finally { isLoadingServices.value = false; } };
-const fetchPatientPlanItems = async (pId) => { if (!pId) { patientPlanItems.value = []; return; } isLoadingPatientPlans.value = true; patientPlanItems.value = []; try { const r = await PatientPlanService.getPlansForPatient(pId); let items = []; r.data.forEach(p => { if (p.isActive && !p.isArchived && p.serviceItems) { p.serviceItems.forEach(i => { if (i.isItemActive && !i.isArchived && i.remainingQuantity > 0) items.push({id: `item-${i.id}`, pId: p.id, sId: i.serviceId, sName: i.serviceName, rem: i.remainingQuantity, tot: i.totalQuantity}); });}}); patientPlanItems.value = items.map(i=>({...i, id:i.id, serviceId:i.sId, serviceName: i.sName, remainingQuantity:i.rem, totalQuantity:i.tot})); } catch(e) { console.error("Err fetch plans:", e); toast.error("Could not load plan items."); patientPlanItems.value = []; } finally { isLoadingPatientPlans.value = false; } };
+
+const fetchPatientPlanItems = async (pId) => { 
+    if (!pId) { 
+        patientPlansWithPayments.value = []; 
+        return; 
+    } 
+    
+    isLoadingPatientPlans.value = true; 
+    patientPlansWithPayments.value = []; 
+    
+    try { 
+        const response = await MedicService.getPatientPlansWithPayments(pId);
+        
+        // Process the plans with payment info
+        let items = [];
+        response.forEach(plan => {
+            if (plan.isActive && !plan.isArchived && plan.serviceItems) {
+                plan.serviceItems.forEach(item => {
+                    if (item.isItemActive && !item.isArchived && item.remainingQuantity > 0) {
+                        items.push({
+                            id: `item-${item.id}`,
+                            planId: plan.id,
+                            serviceId: item.serviceId,
+                            serviceName: item.serviceName,
+                            remainingQuantity: item.remainingQuantity,
+                            totalQuantity: item.totalQuantity,
+                            pricePerUnit: item.pricePerUnit,
+                            // Payment status information
+                            planPaymentStatus: plan.planPaymentStatus,
+                            paidAmount: plan.paidAmount,
+                            totalPlanCost: plan.totalPlanCost,
+                            dueAmount: plan.dueAmount,
+                            isPaid: plan.planPaymentStatus === 'PAID' || plan.dueAmount === 0
+                        });
+                    }
+                });
+            }
+        });
+        
+        patientPlansWithPayments.value = items;
+    } catch(e) { 
+        console.error("Error fetching patient plans with payments:", e); 
+        toast.error("Could not load plan items with payment info."); 
+        patientPlansWithPayments.value = []; 
+    } finally { 
+        isLoadingPatientPlans.value = false; 
+    } 
+};
 
 // --- Watchers ---
-watch(() => editableAppointment.patientId, (newPatientId) => { selectedServiceOrPlanItem.value = null; editableAppointment.serviceId = null; editableAppointment.patientPlanServiceItemId = null; fetchPatientPlanItems(newPatientId); });
-watch(selectedServiceOrPlanItem, (newSelection) => { editableAppointment.serviceId = newSelection?.serviceId || null; editableAppointment.patientPlanServiceItemId = newSelection?.type === 'planItem' ? parseInt(newSelection.id.replace('item-',''), 10) : null; });
+watch(() => editableAppointment.patientId, (newPatientId) => { 
+    selectedServiceOrPlanItemId.value = null; 
+    editableAppointment.serviceId = null; 
+    editableAppointment.patientPlanServiceItemId = null; 
+    fetchPatientPlanItems(newPatientId); 
+});
+
+watch(selectedServiceOrPlanItemId, (newSelectionId) => { 
+    if (!newSelectionId) {
+        editableAppointment.serviceId = null;
+        editableAppointment.patientPlanServiceItemId = null;
+        return;
+    }
+    
+    // Find the selected option from formatted options
+    const selectedOption = formattedServiceOptions.value.find(opt => opt.uniqueId === newSelectionId);
+    if (selectedOption) {
+        editableAppointment.serviceId = selectedOption.serviceId;
+        editableAppointment.patientPlanServiceItemId = selectedOption.type === 'planItem' ? 
+            parseInt(selectedOption.id.toString().replace('item-',''), 10) : null;
+    }
+});
 
 // --- Initialize ---
 const initializeForm = () => {
@@ -146,14 +301,24 @@ const initializeForm = () => {
         editableAppointment.serviceId = existingProps.serviceId;
         editableAppointment.patientPlanServiceItemId = existingProps.patientPlanServiceItemId;
         editableAppointment.notes = existingProps.notes || '';
-        // Set initial dropdown selection
-        if(existingProps.patientPlanServiceItemId) { selectedServiceOrPlanItem.value = {type: 'planItem', id: `item-${existingProps.patientPlanServiceItemId}`, serviceId: existingProps.serviceId}; }
-        else if (existingProps.serviceId) { selectedServiceOrPlanItem.value = {type: 'service', id: `service-${existingProps.serviceId}`, serviceId: existingProps.serviceId}; }
-        else { selectedServiceOrPlanItem.value = null; }
-        if (editableAppointment.patientId) { fetchPatientPlanItems(editableAppointment.patientId); } // Fetch plans if patient known
+        
+        // Set initial dropdown selection based on existing data
+        if(existingProps.patientPlanServiceItemId) { 
+            selectedServiceOrPlanItemId.value = `planitem-item-${existingProps.patientPlanServiceItemId}`;
+        }
+        else if (existingProps.serviceId) { 
+            selectedServiceOrPlanItemId.value = `service-${existingProps.serviceId}`;
+        }
+        else { 
+            selectedServiceOrPlanItemId.value = null; 
+        }
+        
+        if (editableAppointment.patientId) { 
+            fetchPatientPlanItems(editableAppointment.patientId); 
+        }
     } else {
          Object.assign(editableAppointment, { patientId: null, serviceId: null, patientPlanServiceItemId: null, notes: '' });
-         selectedServiceOrPlanItem.value = null;
+         selectedServiceOrPlanItemId.value = null;
     }
 };
 

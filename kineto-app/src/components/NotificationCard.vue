@@ -87,7 +87,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['click', 'mark-read', 'delete']);
+const emit = defineEmits(['click', 'mark-read', 'delete', 'view-details']);
 
 // Local state for modal
 const isModalVisible = ref(false);
@@ -114,6 +114,8 @@ const deleteNotification = () => {
 
 const showDetailsModal = () => {
   isModalVisible.value = true;
+  // Also emit the view-details event for parent component navigation
+  emit('view-details', props.notification);
 };
 
 const closeModal = () => {

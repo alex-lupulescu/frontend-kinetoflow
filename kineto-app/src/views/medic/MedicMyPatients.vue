@@ -207,60 +207,189 @@
     <div v-if="showAssignModal" class="modal-overlay" @click.self="closeAssignModal">
         <div class="modal-content assign-modal-content">
             <button @click="closeAssignModal" class="modal-close-button" title="Close">×</button>
-            <h2>Assign Plan to {{ patientToAssign?.name }}</h2>
+            <div class="modal-header">
+                <h2><i class="fas fa-user-plus"></i> Assign Plan to {{ patientToAssign?.name }}</h2>
+                <p class="modal-subtitle">Create a personalized treatment plan with services and packages</p>
+            </div>
             <form @submit.prevent="handleAssignPlan" class="modal-form">
 
-                 <!-- Assignment Type Radio -->
+                 <!-- Assignment Type Selection -->
                  <div class="form-group">
-                    <label class="form-label">Assignment Type:</label>
-                    <div class="radio-toggle-group">
-                        <label class="radio-toggle-label" :class="{ active: assignmentType === 'package' }">
-                            <input type="radio" name="assignmentType" value="package" v-model="assignmentType" :disabled="isAssigning">
-                            <i class="fas fa-box-open"></i> Assign Package
-                        </label>
-                        <label class="radio-toggle-label" :class="{ active: assignmentType === 'custom' }">
-                            <input type="radio" name="assignmentType" value="custom" v-model="assignmentType" :disabled="isAssigning">
-                            <i class="fas fa-bars"></i> Custom Services
-                        </label>
+                    <label class="form-label">
+                        <i class="fas fa-layer-group"></i> Assignment Type
+                    </label>
+                    <div class="assignment-buttons">
+                        <button 
+                            type="button" 
+                            class="assignment-btn" 
+                            :class="{ active: assignmentType === 'package' }"
+                            @click="assignmentType = 'package'"
+                            :disabled="isAssigning"
+                        >
+                            <i class="fas fa-box-open"></i>
+                            Assign Package
+                        </button>
+                        <button 
+                            type="button" 
+                            class="assignment-btn" 
+                            :class="{ active: assignmentType === 'custom' }"
+                            @click="assignmentType = 'custom'"
+                            :disabled="isAssigning"
+                        >
+                            <i class="fas fa-bars"></i>
+                            Custom Services
+                        </button>
                     </div>
                  </div>
 
                  <!-- Package Selection -->
                 <div v-if="assignmentType === 'package'" class="form-group">
-                    <label for="assignPackageSelect" class="form-label">Select Package *</label>
-                     <div v-if="isLoadingPackages" class="loading-inline small">Loading packages...</div>
+                    <label class="form-label">
+                        <i class="fas fa-box-open"></i> Select Package *
+                    </label>
+                     <div v-if="isLoadingPackages" class="loading-inline small">
+                         <i class="fas fa-spinner fa-spin"></i> Loading packages...
+                     </div>
                      <div v-if="loadPackagesError" class="error-message small">{{ loadPackagesError }}</div>
-                    <select id="assignPackageSelect" v-model="selectedPackageId" class="form-control" required :disabled="isAssigning || isLoadingPackages || availablePackages.length === 0">
-                        <option :value="null" disabled>-- Select an active package --</option>
-                        <option v-for="pkg in availablePackages" :key="pkg.id" :value="pkg.id"> {{ pkg.name }} {{ pkg.totalPrice ? '(' + formatCurrency(pkg.totalPrice) + ')' : '' }} </option>
-                    </select>
-                     <div v-if="!isLoadingPackages && availablePackages.length === 0" class="text-muted small mt-1"> No active packages found. </div>
+                    
+                    <SearchableDropdown
+                      v-model="selectedPackageId"
+                      :options="formattedPackageOptions"
+                      :disabled="isAssigning || isLoadingPackages"
+                      :loading="isLoadingPackages"
+                      placeholder="Select an active package..."
+                      search-placeholder="Search packages by name..."
+                      loading-text="Loading available packages..."
+                      no-options-text="No active packages found"
+                      icon="fas fa-box-open"
+                      label-key="name"
+                      value-key="id"
+                      subtext-key="description" 
+                      meta-key="price"
+                      :required="assignmentType === 'package'"
+                      :error-message="assignmentType === 'package' && !selectedPackageId ? 'Please select a package' : ''"
+                    />
+                    
+                    <!-- Package Details Preview -->
+                    <div v-if="selectedPackageId && !isLoadingPackages && selectedPackageDetails" class="package-preview">
+                        <div class="preview-header">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Package Details</span>
+                        </div>
+                        <div class="preview-content">
+                            <div class="package-basic-info">
+                                <div class="package-title">
+                                    <strong>{{ selectedPackageDetails.name }}</strong>
+                                    <span class="preview-price">{{ formatCurrency(selectedPackageDetails.totalPrice) }}</span>
+                                </div>
+                                <p class="preview-description">{{ selectedPackageDetails.description }}</p>
+                            </div>
+                            
+                            <!-- Included Services -->
+                            <div v-if="selectedPackageDetails.items && selectedPackageDetails.items.length > 0" class="package-services">
+                                <div class="services-header">
+                                    <i class="fas fa-list"></i>
+                                    <span>Included Services</span>
+                                </div>
+                                <div class="services-list">
+                                    <div v-for="item in selectedPackageDetails.items" :key="item.itemId || item.serviceId" class="service-item">
+                                        <div class="service-info">
+                                            <span class="service-name">{{ item.serviceName }}</span>
+                                            <span class="service-quantity">× {{ item.quantity }}</span>
+                                        </div>
+                                        <div v-if="item.serviceDurationMinutes" class="service-meta">
+                                            {{ item.serviceDurationMinutes }} min
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Custom Service Selection -->
                 <div v-if="assignmentType === 'custom'" class="form-group service-items-group">
-                   <label class="form-label">Select Services & Quantities *</label>
-                    <div v-if="isLoadingServices" class="loading-inline small">Loading services...</div>
+                   <label class="form-label">
+                       <i class="fas fa-tools"></i> Select Services & Quantities *
+                   </label>
+                    <div v-if="isLoadingServices" class="loading-inline small">
+                        <i class="fas fa-spinner fa-spin"></i> Loading services...
+                    </div>
                     <div v-if="loadServicesError" class="error-message small">{{ loadServicesError }}</div>
-                    <div v-if="!isLoadingServices && availableServices.length === 0" class="text-muted small mt-1"> No active services available. </div>
+                    <div v-if="!isLoadingServices && availableServices.length === 0" class="text-muted small mt-1">
+                        <i class="fas fa-exclamation-triangle"></i> No active services available.
+                    </div>
                     <div v-if="!isLoadingServices && availableServices.length > 0">
-                        <div v-for="(item, index) in customServiceItems" :key="item.formKey" class="service-item-row">
-                           <select v-model="item.serviceId" required :disabled="isAssigning" class="item-select form-control">
-                             <option disabled :value="null">-- Select Service --</option>
-                             <option v-for="service in availableServices" :key="service.id" :value="service.id"> {{ service.name }} ({{ service.durationMinutes }} min) </option>
-                           </select>
-                           <input type="number" v-model.number="item.quantity" min="1" required placeholder="Qty" class="item-quantity form-control" :disabled="isAssigning">
-                           <button type="button" @click="removeCustomItem(index)" class="btn btn-danger btn-sm btn-remove" title="Remove Item" :disabled="isAssigning"> <i class="fas fa-trash"></i> </button>
+                        <!-- Service Items Header -->
+                        <div class="service-items-header">
+                            <span class="header-service">Service</span>
+                            <span class="header-quantity">Quantity</span>
+                            <span class="header-actions"></span>
                         </div>
-                        <button type="button" @click="addCustomItem" class="btn btn-secondary btn-sm add-item-btn" :disabled="isAssigning || availableServices.length === 0"> <i class="fas fa-plus"></i> Add Service </button>
+                        
+                        <div v-for="(item, index) in customServiceItems" :key="item.formKey" class="service-item-row">
+                           
+                           <SearchableDropdown
+                             v-model="item.serviceId"
+                             :options="formattedServiceOptions"
+                             :disabled="isAssigning"
+                             placeholder="Select Service..."
+                             search-placeholder="Search services by name..."
+                             no-options-text="No services available"
+                             icon="fas fa-tools"
+                             label-key="name"
+                             value-key="id"
+                             subtext-key="description"
+                             meta-key="duration"
+                             class="service-dropdown"
+                             :required="true"
+                           />
+                           
+                           <div class="quantity-input-group">
+                               <input type="number" v-model.number="item.quantity" min="1" required placeholder="1" class="item-quantity form-control" :disabled="isAssigning">
+                           </div>
+                           <button type="button" @click="removeCustomItem(index)" class="btn btn-danger btn-sm btn-remove" title="Remove Item" :disabled="isAssigning"> 
+                               <i class="fas fa-trash"></i> 
+                           </button>
+                        </div>
+                        
+                        <!-- Service Total Preview -->
+                        <div v-if="customServiceItems.length > 0" class="services-total-preview">
+                            <div class="total-header">
+                                <i class="fas fa-calculator"></i>
+                                <span>Services Summary</span>
+                            </div>
+                            <div class="total-content">
+                                <div v-for="(item, index) in customServiceItems" :key="`preview-${index}`" class="service-summary-item">
+                                    <div v-if="item.serviceId">
+                                        <span class="service-name">
+                                            {{ getServiceName(item.serviceId) }}
+                                        </span>
+                                        <span class="service-quantity">× {{ item.quantity }}</span>
+                                        <span class="service-total">
+                                            {{ getServiceTotalPrice(item.serviceId, item.quantity) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="services-grand-total">
+                                    <strong>Total: {{ getGrandTotalPrice() }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" @click="addCustomItem" class="btn btn-secondary btn-sm add-item-btn" :disabled="isAssigning || availableServices.length === 0"> 
+                            <i class="fas fa-plus"></i> Add Another Service 
+                        </button>
                         <div v-if="customItemsError" class="error-message form-error small">{{ customItemsError }}</div>
                     </div>
                 </div>
 
                  <!-- Common Fields -->
                  <div class="form-group">
-                     <label for="assignNotes" class="form-label">Notes (Optional)</label>
-                     <textarea id="assignNotes" v-model="planNotes" rows="3" placeholder="Any specific notes for this plan..." :disabled="isAssigning" class="form-control"></textarea>
+                     <label for="assignNotes" class="form-label">
+                         <i class="fas fa-sticky-note"></i> Notes (Optional)
+                     </label>
+                     <textarea id="assignNotes" v-model="planNotes" rows="3" placeholder="Any specific notes, special instructions, or treatment goals for this plan..." :disabled="isAssigning" class="form-control"></textarea>
                  </div>
 
                  <!-- Errors and Actions -->
@@ -268,7 +397,8 @@
                 <div class="modal-actions">
                     <button type="button" @click="closeAssignModal" class="btn btn-cancel" :disabled="isAssigning">Cancel</button>
                     <button type="submit" class="btn btn-primary" :disabled="isAssigning || isLoadingPackages || isLoadingServices || !isAssignmentValid">
-                        <span v-if="isAssigning"><i class="fas fa-spinner fa-spin"></i> Assigning...</span> <span v-else>Assign Plan</span>
+                        <span v-if="isAssigning"><i class="fas fa-spinner fa-spin"></i> Assigning...</span> 
+                        <span v-else><i class="fas fa-check"></i> Assign Plan</span>
                     </button>
                 </div>
             </form>
@@ -309,7 +439,6 @@
 </template>
 
 <script setup>
-// --- SCRIPT REMAINS EXACTLY THE SAME AS PREVIOUS VERSION ---
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import UserService from '@/services/UserService';
 import MedicService from '@/services/MedicService';
@@ -317,6 +446,7 @@ import PatientPlanService from '@/services/PatientPlanService';
 import InvitationService from '@/services/InvitationService';
 import { useToast } from 'vue-toastification';
 import { useRouter } from 'vue-router';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 
 const toast = useToast();
 const router = useRouter();
@@ -423,12 +553,79 @@ const totalPendingInvitePages = computed(() => {
     return Math.ceil(totalInvites.length / pendingInvitesPerPage.value);
 });
 
+// Computed properties for SearchableDropdown options
+const formattedPackageOptions = computed(() => {
+    return availablePackages.value.map(pkg => ({
+        id: pkg.id,
+        name: pkg.name,
+        description: pkg.description || 'No description available',
+        price: pkg.totalPrice ? formatCurrency(pkg.totalPrice) : '',
+        icon: 'fas fa-box-open'
+    }));
+});
+
+const formattedServiceOptions = computed(() => {
+    return availableServices.value.map(service => ({
+        id: service.id,
+        name: service.name,
+        description: service.description || 'No description available',
+        duration: `${service.durationMinutes || 0} min${service.price ? ' • ' + formatCurrency(service.price) : ''}`,
+        price: service.price ? formatCurrency(service.price) : '',
+        icon: 'fas fa-tools',
+        // Additional details for better display
+        durationMinutes: service.durationMinutes,
+        priceAmount: service.price
+    }));
+});
+
+// Get selected package details for preview
+const selectedPackageDetails = computed(() => {
+    if (!selectedPackageId.value) return null;
+    return availablePackages.value.find(pkg => pkg.id === selectedPackageId.value);
+});
+
+// Helper functions
+const formatCurrency = (amount) => {
+    if (amount == null || amount === '') return '';
+    return new Intl.NumberFormat('ro-RO', {
+        style: 'currency',
+        currency: 'RON',
+        minimumFractionDigits: 2
+    }).format(amount);
+};
+
+// Helper methods for service calculations
+const getServiceName = (serviceId) => {
+    const service = availableServices.value.find(s => s.id === serviceId);
+    return service ? service.name : 'Unknown Service';
+};
+
+const getServicePrice = (serviceId) => {
+    const service = availableServices.value.find(s => s.id === serviceId);
+    return service ? service.price || 0 : 0;
+};
+
+const getServiceTotalPrice = (serviceId, quantity) => {
+    const price = getServicePrice(serviceId);
+    const total = price * quantity;
+    return total > 0 ? formatCurrency(total) : 'Free';
+};
+
+const getGrandTotalPrice = () => {
+    let total = 0;
+    customServiceItems.value.forEach(item => {
+        if (item.serviceId && item.quantity > 0) {
+            total += getServicePrice(item.serviceId) * item.quantity;
+        }
+    });
+    return total > 0 ? formatCurrency(total) : 'Free';
+};
+
 // Generic computed for assignment modal (remains the same)
 const isAssignmentValid = computed(() => { if (assignmentType.value === 'package') { return !!selectedPackageId.value; } else if (assignmentType.value === 'custom') { if (customServiceItems.value.length === 0) return false; const allItemsValid = customServiceItems.value.every(item => item.serviceId && item.quantity >= 1); const noDuplicates = new Set(customServiceItems.value.map(i => i.serviceId)).size === customServiceItems.value.length; return allItemsValid && noDuplicates; } return false; });
 
 // Methods...
 const formatDate = (dateString) => { if (!dateString) return 'N/A'; try { const options = { year: 'numeric', month: 'short', day: 'numeric' }; return new Intl.DateTimeFormat('en-US', options).format(new Date(dateString)); } catch (e) { return dateString; } };
-const formatCurrency = (value) => { if (value === null || value === undefined) return 'N/A'; return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value); };
 const fetchAllAssignedPatients = async () => {
     isLoadingAssignedPatients.value = true;
     loadAssignedPatientsError.value = '';
@@ -735,27 +932,176 @@ onMounted(async () => {
     .modal-form .form-control:disabled { /* Keep disabled appearance override if needed */ }
     .modal-form textarea.form-control { min-height: 80px; }
 
-    /* --- Custom Radio Toggle --- */
-    .radio-toggle-group { display: flex; border: 1px solid #dee2e6; border-radius: var(--border-radius); overflow: hidden; }
-    .radio-toggle-label { flex: 1; padding: 0.7rem 1rem; text-align: center; cursor: pointer; background-color: var(--white-color); color: var(--text-color); transition: all 0.2s ease; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 0.5rem; border-right: 1px solid #dee2e6; }
-    .radio-toggle-label:last-child { border-right: none; }
-    .radio-toggle-label input[type="radio"] { display: none; }
-    .radio-toggle-label i { margin-right: 0.2rem; }
-    .radio-toggle-label.active { background-image: var(--gradient-main); color: var(--white-color); font-weight: 600; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
-    .radio-toggle-label:not(.active):hover { background-color: #f8f9fa; }
-    .radio-toggle-label input[type="radio"]:disabled ~ * { cursor: not-allowed; opacity: 0.6; }
+    /* --- Assignment Type Selection --- */
+    .assignment-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0;
+    }
+    
+    .assignment-btn {
+        flex: 1;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        background: white;
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-radius: var(--border-radius);
+        font-weight: 500;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .assignment-btn i {
+        font-size: 1.1rem;
+    }
+    
+    .assignment-btn.active {
+        background-image: var(--gradient-main);
+        color: white;
+        font-weight: 600;
+        border-color: var(--primary-color-start);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .assignment-btn:not(.active):hover {
+        background-color: #f8f9fa;
+        border-color: #adb5bd;
+    }
+    
+    .assignment-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .assignment-buttons {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .assignment-btn {
+            padding: 0.75rem;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .assignment-btn i {
+            font-size: 1rem;
+        }
+    }
 
-    /* Custom Service Item Row Layout */
-    .service-items-group > .form-label { margin-bottom: 1rem; display: block; }
-    .service-item-row { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
-    .service-item-row .item-select { flex-grow: 1; min-width: 150px; }
-    .item-quantity { width: 70px; text-align: center; flex-shrink: 0; }
-    .btn-remove { line-height: 1; flex-shrink: 0; } /* Position only */
-    .add-item-btn { margin-top: 0.5rem; } /* Position only */
-    .loading-inline { font-style: italic; color: #6c757d; padding: 0.5rem 0; }
-    .text-muted { color: #6c757d; }
-    .small { font-size: 0.85em; }
-    .mt-1 { margin-top: 0.25rem; }
+    /* Enhanced Package Preview */
+    .package-preview {
+        margin-top: 1rem;
+        padding: 1.25rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--border-radius);
+    }
+    .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        font-size: 0.95rem;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 0.5rem;
+    }
+    .preview-header i {
+        color: #3b82f6;
+    }
+    
+    /* Package Basic Info */
+    .package-basic-info {
+        margin-bottom: 1rem;
+    }
+    .package-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+    .package-title strong {
+        font-size: 1.05rem;
+        color: var(--dark-color);
+    }
+    .preview-price {
+        font-weight: 600;
+        color: var(--success-color);
+        font-size: 1rem;
+    }
+    .preview-description {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #6c757d;
+        line-height: 1.4;
+    }
+    
+    /* Package Services Section */
+    .package-services {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 1rem;
+    }
+    .services-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        font-size: 0.9rem;
+    }
+    .services-header i {
+        color: #10b981;
+    }
+    .services-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .service-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 6px;
+        border-left: 3px solid #10b981;
+    }
+    .service-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+    }
+    .service-name {
+        font-weight: 500;
+        color: var(--dark-color);
+        font-size: 0.9rem;
+    }
+    .service-quantity {
+        color: #6c757d;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: #f1f5f9;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    .service-meta {
+        color: #6c757d;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
 
     /* Loading/Error/NoData Styles (Layout/Positioning) */
     .loading-indicator { text-align: center; padding: 3rem 1rem; color: var(--text-color); font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 0.8rem; }
@@ -796,5 +1142,258 @@ onMounted(async () => {
     .pagination-controls span {
         font-size: 0.9rem;
         color: var(--text-color);
+    }
+
+    /* --- Enhanced Modal Styles --- */
+    .modal-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1.5rem;
+    }
+    .modal-header h2 {
+        margin-bottom: 0.5rem;
+        color: var(--dark-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .modal-subtitle {
+        color: #6c757d;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    /* Enhanced Radio Toggle Styles */
+    .radio-toggle-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+    }
+    .radio-toggle-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    .radio-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .radio-description {
+        font-size: 0.8rem;
+        opacity: 0.8;
+        font-weight: 400;
+        margin-top: 0.1rem;
+    }
+
+    /* Enhanced Form Labels */
+    .modal-form .form-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.8rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        font-size: 0.95rem;
+    }
+    .modal-form .form-label i {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    /* Services Total Preview */
+    .services-total-preview {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: var(--border-radius);
+    }
+    .total-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        font-size: 0.9rem;
+    }
+    .total-header i {
+        color: #3b82f6;
+    }
+    .total-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .service-summary-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+    .service-summary-item > div {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        justify-content: space-between;
+    }
+    .service-name {
+        font-weight: 500;
+        color: var(--dark-color);
+    }
+    .service-quantity {
+        color: #6c757d;
+        font-size: 0.8rem;
+    }
+    .service-total {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+    .services-grand-total {
+        border-top: 1px solid #bae6fd;
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+        text-align: right;
+        font-size: 1rem;
+        color: var(--dark-color);
+    }
+
+    /* Enhanced Loading */
+    .loading-inline {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-style: italic;
+        color: #6c757d;
+        padding: 0.75rem;
+        background: #f8fafc;
+        border-radius: var(--border-radius);
+        margin-bottom: 0.5rem;
+    }
+    .loading-inline i {
+        color: #3b82f6;
+    }
+
+    /* Custom Service Item Row Layout */
+    .service-items-group > .form-label { 
+        margin-bottom: 1rem; 
+        display: block; 
+    }
+    
+    /* Service Items Header */
+    .service-items-header {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        grid-gap: 1rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding: 0 1rem;
+    }
+    
+    .header-service,
+    .header-quantity,
+    .header-actions {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: center;
+    }
+    
+    .header-service {
+        text-align: left;
+    }
+    
+    .header-quantity {
+        width: 80px;
+    }
+    
+    .header-actions {
+        width: 40px;
+    }
+    
+    .service-item-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        grid-gap: 1rem;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: var(--border-radius);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .service-dropdown {
+        /* Takes up remaining space */
+        width: 100%;
+    }
+    
+    .quantity-input-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 80px;
+    }
+    
+    .item-quantity {
+        width: 80px;
+        height: 40px;
+        text-align: center;
+        padding: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        border-radius: var(--border-radius);
+        border: 1px solid #dee2e6;
+        background: white;
+    }
+    
+    .btn-remove {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--border-radius);
+        flex-shrink: 0;
+    }
+    
+    .add-item-btn { 
+        margin-top: 1rem; 
+    }
+
+    /* Responsive service items */
+    @media (max-width: 768px) {
+        .service-items-header {
+            display: none; /* Hide header on mobile for cleaner look */
+        }
+        
+        .service-item-row {
+            grid-template-columns: 1fr;
+            grid-gap: 1rem;
+            text-align: center;
+        }
+        
+        .quantity-input-group {
+            justify-self: center;
+            width: 120px;
+        }
+        
+        .btn-remove {
+            justify-self: center;
+            width: auto;
+            height: auto;
+            padding: 0.5rem 1rem;
+        }
     }
 </style>

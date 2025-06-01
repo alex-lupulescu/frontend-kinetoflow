@@ -169,6 +169,19 @@ const MedicService = {
         }
     },
 
+    /**
+     * Get patient plans with payment status (for appointment booking)
+     */
+    async getPatientPlansWithPayments(patientId) {
+        try {
+            const response = await apiClient.get(`/medic/patients/${patientId}/plans-with-payments`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching patient plans with payments:', error);
+            throw error;
+        }
+    },
+
     // --- Extra Work Days Management ---
 
     /**
