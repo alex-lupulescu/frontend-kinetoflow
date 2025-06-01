@@ -137,6 +137,107 @@ const CompanyAdminService = {
             console.error('Error updating user status:', error);
             throw error;
         }
+    },
+
+    // --- Reports Management ---
+
+    /**
+     * Generate medic activity report
+     */
+    async getMedicActivityReport(startDate = null, endDate = null) {
+        try {
+            const params = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            
+            const response = await apiClient.get('/company-admin/reports/medics-activity', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching medic activity report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Generate services utilization report
+     */
+    async getServicesUtilizationReport(startDate = null, endDate = null) {
+        try {
+            const params = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            
+            const response = await apiClient.get('/company-admin/reports/services-utilization', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching services utilization report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Generate patients activity report
+     */
+    async getPatientsActivityReport(startDate = null, endDate = null) {
+        try {
+            const params = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            
+            const response = await apiClient.get('/company-admin/reports/patients-activity', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching patients activity report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Generate financial overview report
+     */
+    async getFinancialOverviewReport(startDate = null, endDate = null) {
+        try {
+            const params = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            
+            const response = await apiClient.get('/company-admin/reports/financial-overview', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching financial overview report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Generate comprehensive company summary report
+     */
+    async getCompanySummaryReport(startDate = null, endDate = null) {
+        try {
+            const params = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+
+            const response = await apiClient.get('/company-admin/reports/company-summary', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching company summary report:', error);
+            throw error;
+        }
+    },
+
+    async getPaymentsReport(startDate = null, endDate = null) {
+        try {
+            const params = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+
+            const response = await apiClient.get('/company-admin/reports/payments', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching payments report:', error);
+            throw error;
+        }
     }
 };
 
