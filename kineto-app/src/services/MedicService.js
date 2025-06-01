@@ -182,6 +182,19 @@ const MedicService = {
         }
     },
 
+    /**
+     * Get comprehensive appointment history for a patient
+     */
+    async getPatientAppointmentHistory(patientId) {
+        try {
+            const response = await apiClient.get(`/medic/patients/${patientId}/appointment-history`);
+            return response;
+        } catch (error) {
+            console.error('Error fetching patient appointment history:', error);
+            throw error;
+        }
+    },
+
     // --- Extra Work Days Management ---
 
     /**
@@ -234,6 +247,16 @@ const MedicService = {
             return response;
         } catch (error) {
             console.error('Error fetching my patients:', error);
+            throw error;
+        }
+    },
+
+    async updatePatientDetails(patientId, patientData) {
+        try {
+            const response = await apiClient.put(`/medic/patients/${patientId}/details`, patientData);
+            return response;
+        } catch (error) {
+            console.error('Error updating patient details:', error);
             throw error;
         }
     },

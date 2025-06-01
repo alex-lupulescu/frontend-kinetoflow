@@ -66,6 +66,10 @@
                    <button @click="openAssignPlanModal(patient)" class="btn btn-primary btn-sm" title="Assign New Plan/Package">
                       <i class="fas fa-plus-circle"></i> Assign Plan
                    </button>
+                   <!-- History Button -->
+                   <button @click="openPatientHistoryModal(patient)" class="btn btn-info btn-sm" title="View Appointment History & Remaining Sessions">
+                      <i class="fas fa-history"></i> History
+                   </button>
                    <!-- Edit Patient Button -->
                    <button @click="openEditPatientModal(patient)" class="btn btn-warning btn-sm" title="Edit Patient Details">
                        <i class="fas fa-edit"></i> Edit
@@ -173,33 +177,213 @@
 
     <!-- Edit Patient Modal -->
     <div v-if="showEditPatientModal" class="modal-overlay" @click.self="closeEditPatientModal">
-        <div class="modal-content">
+        <div class="modal-content edit-patient-modal-content">
             <button @click="closeEditPatientModal" class="modal-close-button" title="Close">×</button>
-            <h2>Edit Patient: {{ patientToEditData?.name }}</h2>
-            <form @submit.prevent="handleUpdatePatientDetails" class="modal-form">
+            <h2>Edit Patient Details</h2>
+            <p v-if="patientToEditData">Editing details for: <strong>{{ patientToEditData.name }}</strong></p>
+            
+            <form @submit.prevent="handleEditPatientSave" class="modal-form">
                 <div class="form-group">
-                    <label for="editPatientName" class="form-label">Patient Name *</label>
-                    <input type="text" id="editPatientName" v-model="editPatientForm.name" required placeholder="Enter patient's full name" :disabled="isUpdatingPatient" class="form-control">
+                    <label for="editPatientName" class="form-label">Name *</label>
+                    <input type="text" id="editPatientName" v-model="editPatientForm.name" required class="form-control" :disabled="isUpdatingPatient">
                 </div>
                 <div class="form-group">
-                    <label for="editPatientPhone" class="form-label">Patient Phone *</label>
-                    <input type="tel" id="editPatientPhone" v-model="editPatientForm.phone" required placeholder="Enter patient's phone number" :disabled="isUpdatingPatient" class="form-control">
+                    <label for="editPatientEmail" class="form-label">Email</label>
+                    <input type="email" id="editPatientEmail" v-model="editPatientForm.email" class="form-control" :disabled="isUpdatingPatient">
                 </div>
                 <div class="form-group">
-                    <label for="editPatientEmail" class="form-label">Patient Email</label>
-                    <input type="email" id="editPatientEmail" v-model="editPatientForm.email" placeholder="Enter patient's email (optional)" :disabled="isUpdatingPatient" class="form-control">
-                    <small v-if="patientToEditData?.isActive && !patientToEditData?.email" class="text-muted">Adding an email here will not activate the patient. You may need to resend an invitation if they were offline.</small>
-                    <small v-else-if="patientToEditData?.isActive && patientToEditData?.email" class="text-muted">Active patients must have an email.</small>
+                    <label for="editPatientPhone" class="form-label">Phone</label>
+                    <input type="tel" id="editPatientPhone" v-model="editPatientForm.phone" class="form-control" :disabled="isUpdatingPatient">
                 </div>
+                
                 <div v-if="editPatientError" class="error-message modal-error">{{ editPatientError }}</div>
+                
                 <div class="modal-actions">
                     <button type="button" @click="closeEditPatientModal" class="btn btn-cancel" :disabled="isUpdatingPatient">Cancel</button>
-                    <button type="submit" class="btn btn-primary" :disabled="isUpdatingPatient || !editPatientForm.name || !editPatientForm.phone">
+                    <button type="submit" class="btn btn-primary" :disabled="isUpdatingPatient">
                         <span v-if="isUpdatingPatient"><i class="fas fa-spinner fa-spin"></i> Updating...</span>
-                        <span v-else>Save Changes</span>
+                        <span v-else>Update Patient</span>
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Patient History Modal -->
+    <div v-if="showPatientHistoryModal" class="modal-overlay" @click.self="closePatientHistoryModal">
+        <div class="modal-content patient-history-modal-content">
+            <button @click="closePatientHistoryModal" class="modal-close-button" title="Close">×</button>
+            <h2>
+                <i class="fas fa-history"></i> 
+                Appointment History
+            </h2>
+            <p v-if="selectedPatientForHistory">
+                Patient: <strong>{{ selectedPatientForHistory.name }}</strong>
+                <span v-if="selectedPatientForHistory.email"> ({{ selectedPatientForHistory.email }})</span>
+            </p>
+            
+            <!-- Loading State -->
+            <div v-if="isLoadingPatientHistory" class="loading-state">
+                <i class="fas fa-spinner fa-spin"></i> Loading appointment history...
+            </div>
+            
+            <!-- Error State -->
+            <div v-if="patientHistoryError && !isLoadingPatientHistory" class="error-message">
+                <i class="fas fa-exclamation-triangle"></i> {{ patientHistoryError }}
+                <button @click="fetchPatientHistory(selectedPatientForHistory.id)" class="btn btn-sm btn-secondary retry-btn">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+            
+            <!-- History Content -->
+            <div v-if="patientHistoryData && !isLoadingPatientHistory" class="history-content">
+                <!-- Statistics Summary -->
+                <div class="history-stats">
+                    <h3><i class="fas fa-chart-bar"></i> Summary</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number">{{ patientHistoryData.totalAppointments || 0 }}</span>
+                            <span class="stat-label">Total Appointments</span>
+                        </div>
+                        <div class="stat-item completed">
+                            <span class="stat-number">{{ patientHistoryData.completedAppointments || 0 }}</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                        <div class="stat-item scheduled">
+                            <span class="stat-number">{{ patientHistoryData.scheduledAppointments || 0 }}</span>
+                            <span class="stat-label">Scheduled</span>
+                        </div>
+                        <div class="stat-item cancelled">
+                            <span class="stat-number">{{ patientHistoryData.cancelledAppointments || 0 }}</span>
+                            <span class="stat-label">Cancelled</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Service Sessions Summary -->
+                <div v-if="patientHistoryData.serviceSummaries && patientHistoryData.serviceSummaries.length > 0" class="service-summaries">
+                    <h3><i class="fas fa-chart-line"></i> Sessions by Service</h3>
+                    <div class="service-cards-grid">
+                        <div v-for="service in patientHistoryData.serviceSummaries" :key="service.serviceId" class="service-card">
+                            <!-- Service Card Header -->
+                            <div class="service-card-header">
+                                <div class="service-title-section">
+                                    <h4 class="service-title">{{ service.serviceName }}</h4>
+                                    <div class="progress-indicator">
+                                        <div class="progress-bar" :style="{ width: getProgressPercentage(service) + '%' }"></div>
+                                    </div>
+                                </div>
+                                <div class="remaining-counter" :class="{ 'zero-remaining': service.remainingSessions === 0 }">
+                                    <span class="remaining-number">{{ service.remainingSessions || 0 }}</span>
+                                    <span class="remaining-text">left</span>
+                                </div>
+                            </div>
+
+                            <!-- Service Statistics Grid -->
+                            <div class="service-stats-grid">
+                                <div class="stat-card total">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-clipboard-list"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <span class="stat-number">{{ service.totalSessionsFromPlans || 0 }}</span>
+                                        <span class="stat-label">Total Planned</span>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card completed">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <span class="stat-number">{{ service.completedSessions || 0 }}</span>
+                                        <span class="stat-label">Completed</span>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card scheduled">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-calendar-check"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <span class="stat-number">{{ service.scheduledSessions || 0 }}</span>
+                                        <span class="stat-label">Scheduled</span>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card cancelled">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-times-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <span class="stat-number">{{ service.cancelledSessions || 0 }}</span>
+                                        <span class="stat-label">Cancelled</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Service Timeline -->
+                            <div v-if="service.lastAppointmentDate || service.nextAppointmentDate" class="service-timeline">
+                                <div v-if="service.lastAppointmentDate" class="timeline-item past">
+                                    <i class="fas fa-history"></i>
+                                    <div class="timeline-content">
+                                        <span class="timeline-label">Last Session</span>
+                                        <span class="timeline-date">{{ formatDate(service.lastAppointmentDate) }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="service.nextAppointmentDate" class="timeline-item future">
+                                    <i class="fas fa-arrow-right"></i>
+                                    <div class="timeline-content">
+                                        <span class="timeline-label">Next Session</span>
+                                        <span class="timeline-date">{{ formatDate(service.nextAppointmentDate) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Appointments -->
+                <div v-if="patientHistoryData.recentAppointments && patientHistoryData.recentAppointments.length > 0" class="recent-appointments">
+                    <h3><i class="fas fa-clock"></i> Recent Appointments</h3>
+                    <div class="appointments-list">
+                        <div v-for="appointment in patientHistoryData.recentAppointments" :key="appointment.appointmentId" class="appointment-item">
+                            <div class="appointment-header">
+                                <span class="appointment-service">{{ appointment.serviceName }}</span>
+                                <span class="appointment-status" :class="appointment.status.toLowerCase()">
+                                    {{ formatStatus(appointment.status) }}
+                                </span>
+                            </div>
+                            <div class="appointment-details">
+                                <div class="appointment-time">
+                                    <i class="fas fa-calendar"></i>
+                                    {{ formatDateTime(appointment.scheduledStartTime) }}
+                                </div>
+                                <div class="appointment-plan">
+                                    <i class="fas fa-file-medical"></i>
+                                    {{ appointment.planName }}
+                                    <span v-if="!appointment.isFromPlan" class="auto-created">(Auto-created)</span>
+                                </div>
+                                <div v-if="appointment.notes" class="appointment-notes">
+                                    <i class="fas fa-sticky-note"></i>
+                                    {{ appointment.notes }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Empty State -->
+                <div v-if="patientHistoryData.totalAppointments === 0" class="empty-state">
+                    <i class="fas fa-calendar-times"></i>
+                    <h3>No Appointments Yet</h3>
+                    <p>This patient hasn't had any appointments scheduled.</p>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button @click="closePatientHistoryModal" class="btn btn-secondary">Close</button>
+            </div>
         </div>
     </div>
 
@@ -495,6 +679,13 @@ const editPatientForm = reactive({
 const isUpdatingPatient = ref(false);
 const editPatientError = ref('');
 
+// Patient History Modal State
+const showPatientHistoryModal = ref(false);
+const patientHistoryData = ref(null);
+const isLoadingPatientHistory = ref(false);
+const patientHistoryError = ref('');
+const selectedPatientForHistory = ref(null);
+
 // Computed properties for "My Patients" list (Search and Pagination)
 const filteredAndPaginatedAssignedPatients = computed(() => {
     let patients = allAssignedPatients.value;
@@ -625,7 +816,56 @@ const getGrandTotalPrice = () => {
 const isAssignmentValid = computed(() => { if (assignmentType.value === 'package') { return !!selectedPackageId.value; } else if (assignmentType.value === 'custom') { if (customServiceItems.value.length === 0) return false; const allItemsValid = customServiceItems.value.every(item => item.serviceId && item.quantity >= 1); const noDuplicates = new Set(customServiceItems.value.map(i => i.serviceId)).size === customServiceItems.value.length; return allItemsValid && noDuplicates; } return false; });
 
 // Methods...
-const formatDate = (dateString) => { if (!dateString) return 'N/A'; try { const options = { year: 'numeric', month: 'short', day: 'numeric' }; return new Intl.DateTimeFormat('en-US', options).format(new Date(dateString)); } catch (e) { return dateString; } };
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    } catch (error) {
+        return 'Invalid Date';
+    }
+};
+
+const formatDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (error) {
+        return 'Invalid Date';
+    }
+};
+
+const formatStatus = (status) => {
+    const statusMap = {
+        'SCHEDULED': 'Scheduled',
+        'COMPLETED': 'Completed',
+        'CANCELLED_BY_MEDIC': 'Cancelled by Medic',
+        'CANCELLED_BY_PATIENT': 'Cancelled by Patient',
+        'NO_SHOW': 'No Show'
+    };
+    return statusMap[status] || status;
+};
+
+// Helper function for service progress calculation
+const getProgressPercentage = (service) => {
+    const total = service.totalSessionsFromPlans || 0;
+    const completed = service.completedSessions || 0;
+    
+    if (total === 0) return 0;
+    return Math.min((completed / total) * 100, 100);
+};
+
 const fetchAllAssignedPatients = async () => {
     isLoadingAssignedPatients.value = true;
     loadAssignedPatientsError.value = '';
@@ -809,16 +1049,9 @@ const closeEditPatientModal = () => {
     editPatientForm.phone = '';
 };
 
-const handleUpdatePatientDetails = async () => {
+const handleEditPatientSave = async () => {
     if (!editPatientForm.name || !editPatientForm.phone) {
         editPatientError.value = 'Patient name and phone number are required.';
-        toast.error(editPatientError.value);
-        return;
-    }
-    // Basic email validation if email is not empty
-    if (editPatientForm.email && !/.+@.+\..+/.test(editPatientForm.email)) {
-        editPatientError.value = 'Please enter a valid email address or leave it blank if patient is inactive and has no email.';
-        toast.error(editPatientError.value);
         return;
     }
 
@@ -826,30 +1059,24 @@ const handleUpdatePatientDetails = async () => {
     editPatientError.value = '';
 
     try {
-        const payload = {
-            name: editPatientForm.name,
-            email: editPatientForm.email || null, // Send null if empty, backend handles logic
-            phone: editPatientForm.phone
+        const updateData = {
+            name: editPatientForm.name.trim(),
+            email: editPatientForm.email?.trim() || null,
+            phoneNumber: editPatientForm.phone.trim()
         };
-        const updatedPatient = await UserService.updatePatientDetails(editPatientForm.id, payload);
 
-        // Update the local list by re-fetching. This is simpler than manually updating.
-        // const index = assignedPatients.value.findIndex(p => p.id === editPatientForm.id);
-        // if (index !== -1) {
-        //     assignedPatients.value[index] = { ...assignedPatients.value[index], ...updatedPatient.data };
-        // }
-        //  // Also check and update in pendingInvites if the ID matches, though less likely to be edited from there
-        // const pendingIndex = pendingInvites.value.findIndex(p => p.id === editPatientForm.id);
-        // if (pendingIndex !== -1) {
-        //     pendingInvites.value[pendingIndex] = { ...pendingInvites.value[pendingIndex], ...updatedPatient.data };
-        // }
-        await fetchAllAssignedPatients(); // Refreshes the main list
-        await fetchAssignedPendingInvites(); // Also refresh pending, in case status change affected it
+        const response = await MedicService.updatePatientDetails(editPatientForm.id, updateData);
+        
+        // Update the patient in the local list
+        const patientIndex = allAssignedPatients.value.findIndex(p => p.id === editPatientForm.id);
+        if (patientIndex !== -1) {
+            allAssignedPatients.value[patientIndex] = response.data;
+        }
 
-        toast.success('Patient details updated successfully!');
+        toast.success('Patient details updated successfully');
         closeEditPatientModal();
     } catch (error) {
-        console.error("Error updating patient details:", error);
+        console.error('Error updating patient details:', error);
         const message = error.response?.data?.message || 'Failed to update patient details.';
         editPatientError.value = message;
         toast.error(message);
@@ -869,6 +1096,43 @@ const goToAssignedPatientsPage = (page) => {
 const goToPendingInvitesPage = (page) => {
     if (page >= 1 && page <= totalPendingInvitePages.value) {
         pendingInvitesCurrentPage.value = page;
+    }
+};
+
+// --- Patient History Modal Methods ---
+const openPatientHistoryModal = async (patient) => {
+    console.log('Opening patient history modal for:', patient);
+    selectedPatientForHistory.value = patient;
+    patientHistoryData.value = null;
+    patientHistoryError.value = '';
+    showPatientHistoryModal.value = true;
+    await fetchPatientHistory(patient.id);
+};
+
+const closePatientHistoryModal = () => {
+    showPatientHistoryModal.value = false;
+    selectedPatientForHistory.value = null;
+    patientHistoryData.value = null;
+    patientHistoryError.value = '';
+    isLoadingPatientHistory.value = false;
+};
+
+const fetchPatientHistory = async (patientId) => {
+    console.log('Fetching patient history for ID:', patientId);
+    isLoadingPatientHistory.value = true;
+    patientHistoryError.value = '';
+    
+    try {
+        const response = await MedicService.getPatientAppointmentHistory(patientId);
+        console.log('Patient history response:', response.data);
+        patientHistoryData.value = response.data;
+    } catch (error) {
+        console.error('Error fetching patient history:', error);
+        const message = error.response?.data?.message || 'Failed to load patient history.';
+        patientHistoryError.value = message;
+        toast.error(message);
+    } finally {
+        isLoadingPatientHistory.value = false;
     }
 };
 
@@ -1394,6 +1658,561 @@ onMounted(async () => {
             width: auto;
             height: auto;
             padding: 0.5rem 1rem;
+        }
+    }
+
+    /* Patient History Modal Styles */
+    .patient-history-modal-content {
+        max-width: 900px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .loading-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-color);
+    }
+
+    .loading-state i {
+        font-size: 1.5rem;
+        margin-right: 0.5rem;
+        color: var(--primary-color-start);
+    }
+
+    .retry-btn {
+        margin-left: 1rem;
+    }
+
+    .history-content {
+        margin-bottom: 1rem;
+    }
+
+    /* Statistics Grid */
+    .history-stats {
+        margin-bottom: 2rem;
+    }
+
+    .history-stats h3 {
+        color: var(--dark-color);
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        border-bottom: 2px solid var(--primary-color-start);
+        padding-bottom: 0.5rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-item {
+        background: #f8fafc;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        text-align: center;
+        border: 2px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+
+    .stat-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-light);
+    }
+
+    .stat-item.completed {
+        border-color: var(--success-color);
+        background: #f0f9ff;
+    }
+
+    .stat-item.scheduled {
+        border-color: var(--primary-color-start);
+        background: #eff6ff;
+    }
+
+    .stat-item.cancelled {
+        border-color: var(--danger-color);
+        background: #fef2f2;
+    }
+
+    .stat-number {
+        display: block;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--dark-color);
+        line-height: 1;
+    }
+
+    .stat-label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--text-color);
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    /* Service Summaries - New Modern Design */
+    .service-summaries {
+        margin-bottom: 2rem;
+    }
+
+    .service-summaries h3 {
+        color: var(--dark-color);
+        margin-bottom: 1.5rem;
+        font-size: 1.2rem;
+        border-bottom: 2px solid var(--success-color);
+        padding-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .service-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .service-card {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .service-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        border-color: var(--primary-color-start);
+    }
+
+    .service-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color-start), var(--success-color));
+    }
+
+    /* Service Card Header */
+    .service-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        gap: 1rem;
+    }
+
+    .service-title-section {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .service-title {
+        margin: 0 0 0.75rem 0;
+        color: var(--dark-color);
+        font-size: 1.1rem;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .progress-indicator {
+        width: 100%;
+        height: 8px;
+        background-color: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--success-color) 0%, #10b981 100%);
+        border-radius: 4px;
+        transition: width 0.6s ease;
+        position: relative;
+    }
+
+    .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    .remaining-counter {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: linear-gradient(135deg, var(--success-color), #10b981);
+        color: white;
+        padding: 0.75rem;
+        border-radius: 12px;
+        min-width: 70px;
+        box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .remaining-counter.zero-remaining {
+        background: linear-gradient(135deg, var(--danger-color), #dc2626);
+        box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+    }
+
+    .remaining-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+
+    .remaining-text {
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.9;
+    }
+
+    /* Service Statistics Grid */
+    .service-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: rgba(248, 250, 252, 0.7);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card:hover {
+        background: rgba(248, 250, 252, 1);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .stat-card.total .stat-icon {
+        background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+        color: #374151;
+    }
+
+    .stat-card.completed .stat-icon {
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+        color: var(--success-color);
+    }
+
+    .stat-card.scheduled .stat-icon {
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+        color: var(--primary-color-start);
+    }
+
+    .stat-card.cancelled .stat-icon {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        color: var(--danger-color);
+    }
+
+    .stat-content {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .stat-number {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--dark-color);
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        color: var(--text-color);
+        font-weight: 500;
+        margin-top: 0.125rem;
+    }
+
+    /* Service Timeline */
+    .service-timeline {
+        display: flex;
+        gap: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+        padding: 0.5rem;
+        border-radius: 8px;
+        background: rgba(248, 250, 252, 0.5);
+        transition: all 0.2s ease;
+    }
+
+    .timeline-item:hover {
+        background: rgba(248, 250, 252, 1);
+    }
+
+    .timeline-item.past {
+        border-left: 3px solid #6b7280;
+    }
+
+    .timeline-item.future {
+        border-left: 3px solid var(--primary-color-start);
+    }
+
+    .timeline-item i {
+        font-size: 0.9rem;
+        color: var(--text-color);
+        width: 16px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .timeline-item.future i {
+        color: var(--primary-color-start);
+    }
+
+    .timeline-content {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .timeline-label {
+        font-size: 0.75rem;
+        color: var(--text-color);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.125rem;
+    }
+
+    .timeline-date {
+        font-size: 0.85rem;
+        color: var(--dark-color);
+        font-weight: 600;
+    }
+
+    /* Responsive Design for Service Cards */
+    @media (max-width: 768px) {
+        .service-cards-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .service-card {
+            padding: 1rem;
+        }
+
+        .service-card-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+
+        .remaining-counter {
+            align-self: flex-end;
+            min-width: 60px;
+        }
+
+        .service-stats-grid {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .timeline-item {
+            flex-direction: column;
+            text-align: center;
+            gap: 0.25rem;
+        }
+
+        .timeline-content {
+            align-items: center;
+        }
+    }
+
+    /* Recent Appointments */
+    .recent-appointments {
+        margin-bottom: 2rem;
+    }
+
+    .recent-appointments h3 {
+        color: var(--dark-color);
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        border-bottom: 2px solid var(--info-color);
+        padding-bottom: 0.5rem;
+    }
+
+    .appointments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .appointment-item {
+        background: #f8fafc;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+
+    .appointment-item:hover {
+        box-shadow: var(--shadow-light);
+        border-color: var(--primary-color-start);
+    }
+
+    .appointment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .appointment-service {
+        font-weight: 600;
+        color: var(--dark-color);
+        font-size: 1rem;
+    }
+
+    .appointment-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .appointment-status.scheduled {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .appointment-status.completed {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .appointment-status.cancelled_by_medic,
+    .appointment-status.cancelled_by_patient {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .appointment-status.no_show {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .appointment-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .appointment-time,
+    .appointment-plan,
+    .appointment-notes {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--text-color);
+    }
+
+    .appointment-time i,
+    .appointment-plan i,
+    .appointment-notes i {
+        width: 16px;
+        color: var(--primary-color-start);
+    }
+
+    .auto-created {
+        font-style: italic;
+        color: var(--warning-color);
+        font-size: 0.8rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-color);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        color: #cbd5e1;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        color: var(--dark-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--text-color);
+        margin: 0;
+    }
+
+    /* Responsive Design for History Modal */
+    @media (max-width: 768px) {
+        .patient-history-modal-content {
+            max-width: 95vw;
+            margin: 1rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .appointment-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
         }
     }
 </style>
